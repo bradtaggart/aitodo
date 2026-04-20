@@ -48,6 +48,29 @@ h1 {
   }
 }
 
+.error {
+  background: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #fca5a5;
+  border-radius: 6px;
+  padding: 10px 14px;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  button {
+    margin-left: auto;
+    background: none;
+    border: none;
+    color: inherit;
+    cursor: pointer;
+    font-size: 18px;
+    line-height: 1;
+    padding: 0;
+  }
+}
+
 .empty {
   color: var(--text);
   text-align: center;
@@ -76,24 +99,25 @@ h1 {
   gap: 12px;
   padding: 12px 14px;
 
-  & span {
+  .todo-text {
     flex: 1;
     font-size: 16px;
     color: var(--text-h);
   }
 
-  &.done span {
+  &.done .todo-label {
     text-decoration: line-through;
     color: var(--text);
   }
 
+  .created-at,
   .completed-at {
     display: block;
     font-size: 12px;
-    text-decoration: none;
     color: var(--text);
     margin-top: 2px;
   }
+
 }
 
 .child-form {
