@@ -15,7 +15,6 @@ export function formatDisplay(dateStr: string): string {
 }
 
 export function isOverdue(dateStr: string): boolean {
-  const due = toDate(dateStr)
-  due.setHours(23, 59, 59, 999)
-  return due < new Date()
+  const [y, m, d] = dateStr.split('-').map(Number)
+  return new Date(y, m - 1, d, 23, 59, 59, 999) < new Date()
 }

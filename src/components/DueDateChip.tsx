@@ -25,8 +25,7 @@ export function DueDateChip({ dueDate, onChange }: Props) {
   const overdue = dueDate ? isOverdue(dueDate) : false
 
   function handleSelect(date: Date | undefined) {
-    if (!date) return
-    onChange(toDateStr(date))
+    onChange(date ? toDateStr(date) : null)
     setOpen(false)
   }
 
@@ -38,17 +37,17 @@ export function DueDateChip({ dueDate, onChange }: Props) {
         onClick={() => setOpen(v => !v)}
       >
         {dueDate ? formatDisplay(dueDate) : '+ due date'}
-        {dueDate && (
-          <span
-            className="due-chip-clear"
-            onClick={e => { e.stopPropagation(); onChange(null) }}
-            role="button"
-            aria-label="Clear due date"
-          >
-            ✕
-          </span>
-        )}
       </button>
+      {dueDate && (
+        <button
+          type="button"
+          className="due-chip-clear"
+          onClick={e => { e.stopPropagation(); onChange(null) }}
+          aria-label="Clear due date"
+        >
+          ✕
+        </button>
+      )}
       {open && (
         <div className="due-chip-popover">
           <DayPicker
