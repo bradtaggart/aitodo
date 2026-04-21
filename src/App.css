@@ -509,3 +509,60 @@ h1 {
   box-shadow: var(--shadow);
   padding: 4px;
 }
+
+.app-layout {
+  display: flex;
+  align-items: flex-start;
+  min-height: 100vh;
+}
+
+.calendar-panel {
+  width: 44px;
+  flex-shrink: 0;
+  padding: 60px 8px 0;
+  border-right: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  min-height: 100vh;
+  box-sizing: border-box;
+
+  &.open {
+    width: 280px;
+    padding: 60px 16px 0;
+  }
+}
+
+.calendar-toggle {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  cursor: pointer;
+  font-size: 11px;
+  padding: 4px 7px;
+  display: block;
+  margin-bottom: 12px;
+  font-family: var(--sans);
+
+  &:hover {
+    color: var(--text-h);
+    border-color: var(--text-h);
+  }
+}
+
+.day-has-tasks {
+  position: relative;
+
+  &::after {
+    content: '';
+    position: absolute;
+    bottom: 2px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: var(--accent);
+    display: block;
+  }
+}
