@@ -112,7 +112,7 @@ export default function App() {
           <div className="filter-banner">
             Tasks due <strong>{selectedDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</strong>
             <span style={{ marginLeft: 4 }}>· {topLevel.length} {topLevel.length === 1 ? 'task' : 'tasks'}</span>
-            <button onClick={() => setSelectedDate(null)}>✕ Clear filter</button>
+            <button onClick={() => setSelectedDate(null)} aria-label="Clear date filter">✕ Clear filter</button>
           </div>
         )}
         {topLevel.length === 0 && <p className="empty">{selectedDate ? 'No tasks due on this day.' : 'No tasks yet.'}</p>}
