@@ -499,10 +499,6 @@ h1 {
 }
 
 .due-chip-popover {
-  position: absolute;
-  top: calc(100% + 4px);
-  right: 0;
-  z-index: 100;
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -525,10 +521,21 @@ h1 {
   top: 0;
   min-height: 100vh;
   box-sizing: border-box;
+  overflow: hidden;
 
   &.open {
-    width: 280px;
-    padding: 60px 16px 0;
+    width: 260px;
+    padding: 60px 12px 0;
+  }
+
+  &.open .rdp-root {
+    --rdp-day-width: 32px;
+    --rdp-day-height: 32px;
+    --rdp-day_button-width: 30px;
+    --rdp-day_button-height: 30px;
+    --rdp-nav_button-height: 1.75rem;
+    --rdp-nav_button-width: 1.75rem;
+    --rdp-nav-height: 2.25rem;
   }
 }
 
