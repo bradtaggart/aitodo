@@ -1,13 +1,17 @@
 import { useState } from 'react'
 import { CategoryBar } from './components/CategoryBar'
 import { TodoItem } from './components/TodoItem'
+import { CalendarPanel } from './components/CalendarPanel'
 import { useTodos } from './hooks/useTodos'
 import { useCategories } from './hooks/useCategories'
+import { toDateStr } from './utils/dates'
 import './App.css'
 
 export default function App() {
   const [input, setInput] = useState('')
   const [activeCat, setActiveCat] = useState<number | null>(null)
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null)
+  const [calendarOpen, setCalendarOpen] = useState(true)
 
   const {
     todos,
@@ -21,6 +25,7 @@ export default function App() {
     toggleTodo,
     deleteTodo,
     changeCategory,
+    changeDueDate,
   } = useTodos()
 
   const {
@@ -53,58 +58,83 @@ export default function App() {
     if (activeCat === id) setActiveCat(null)
   }
 
-  const topLevel = todos.filter(t => !t.parent_id && (activeCat === null || t.category_id === activeCat))
+  const topLevel = todos.filter(t => {
+    if (t.parent_id) return false
+    if (activeCat !== null && t.category_id !== activeCat) return false
+    if (selectedDate !== null && t.due_date !== toDateStr(selectedDate)) return false
+    return true
+  })
+
   const activeCatObj = categories.find(c => c.id === activeCat) ?? null
 
   return (
-    <main>
-      <h1>TODO Build by Claude Code</h1>
-      {error && (
-        <p className="error">
-          {error}
-          <button onClick={clearError}>×</button>
-        </p>
-      )}
-      <form onSubmit={handleAddTodo} className="add-form">
-        <input
-          value={input}
-          onChange={e => setInput(e.target.value)}
-          placeholder="Add a task..."
-          aria-label="New task"
-          disabled={pending}
-        />
-        <button type="submit" disabled={pending}>Add</button>
-      </form>
-      <CategoryBar
-        categories={categories}
-        activeCat={activeCat}
-        onSelect={setActiveCat}
-        onAdd={addCategory}
-        onDelete={handleDeleteCategory}
+    <div className="app-layout">
+      <CalendarPanel
+        todos={todos}
+        selectedDate={selectedDate}
+        onDateSelect={setSelectedDate}
+        open={calendarOpen}
+        onToggle={() => setCalendarOpen(v => !v)}
       />
-      {activeCatObj && (
-        <div className="filter-banner">
-          <span className="cat-dot" style={{ background: activeCatObj.color }} />
-          Showing tasks in <strong>{activeCatObj.name}</strong>
-          <button onClick={() => setActiveCat(null)} aria-label="Clear filter">× Clear filter</button>
-        </div>
-      )}
-      {topLevel.length === 0 && <p className="empty">No tasks yet.</p>}
-      <ul className="todo-list">
-        {topLevel.map(todo => (
-          <TodoItem
-            key={todo.id}
-            todo={todo}
-            subtasks={subtasksOf(todo.id)}
-            categories={categories}
-            onToggle={toggleTodo}
-            onDelete={handleDeleteTodo}
-            onAddChild={addChild}
-            onChangeCategory={changeCategory}
-            subtasksOf={subtasksOf}
+      <main className="main-panel">
+        <h1>TODO Build by Claude Code</h1>
+        {error && (
+          <p className="error">
+            {error}
+            <button onClick={clearError}>×</button>
+          </p>
+        )}
+        <form onSubmit={handleAddTodo} className="add-form">
+          <input
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            placeholder="Add a task..."
+            aria-label="New task"
+            disabled={pending}
           />
-        ))}
-      </ul>
-    </main>
+          <button type="submit" disabled={pending}>Add</button>
+        </form>
+        <CategoryBar
+          categories={categories}
+          activeCat={activeCat}
+          onSelect={setActiveCat}
+          onAdd={addCategory}
+          onDelete={handleDeleteCategory}
+        />
+        {activeCatObj && (
+          <div className="filter-banner">
+            <span className="cat-dot" style={{ background: activeCatObj.color }} />
+            Showing tasks in <strong>{activeCatObj.name}</strong>
+            <button onClick={() => setActiveCat(null)} aria-label="Clear filter">× Clear filter</button>
+          </div>
+        )}
+        {selectedDate && (
+          <div className="filter-banner">
+            Tasks due <strong>{selectedDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</strong>
+            <span style={{ marginLeft: 4 }}>· {topLevel.length} {topLevel.length === 1 ? 'task' : 'tasks'}</span>
+            <button onClick={() => setSelectedDate(null)}>✕ Clear filter</button>
+          </div>
+        )}
+        {topLevel.length === 0 && <p className="empty">{selectedDate ? 'No tasks due on this day.' : 'No tasks yet.'}</p>}
+        <ul className="todo-list">
+          {topLevel.map(todo => (
+            <TodoItem
+              key={todo.id}
+              todo={todo}
+              subtasks={subtasksOf(todo.id)}
+              categories={categories}
+              onToggle={toggleTodo}
+              onDelete={handleDeleteTodo}
+              onAddChild={addChild}
+              onChangeCategory={changeCategory}
+              onChangeDueDate={changeDueDate}
+              subtasksOf={subtasksOf}
+              showDueDateChip={selectedDate === null}
+              forceExpanded={selectedDate !== null}
+            />
+          ))}
+        </ul>
+      </main>
+    </div>
   )
 }

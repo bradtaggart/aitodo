@@ -1,8 +1,8 @@
-main {
-  width: 540px;
-  max-width: 100%;
-  margin: 60px auto;
-  padding: 0 20px;
+.main-panel {
+  flex: 1;
+  min-width: 0;
+  max-width: 580px;
+  padding: 60px 24px 0;
   box-sizing: border-box;
 }
 
