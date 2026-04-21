@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { Todo, Category } from '../types'
+import { DueDateChip } from './DueDateChip'
 
 interface Props {
   todo: Todo
@@ -9,10 +10,13 @@ interface Props {
   onDelete: (id: number) => void
   onAddChild: (text: string, parent_id: number) => void
   onChangeCategory: (id: number, category_id: number | null) => void
+  onChangeDueDate: (id: number, due_date: string | null) => void
   subtasksOf: (id: number) => Todo[]
+  showDueDateChip: boolean
+  forceExpanded?: boolean
 }
 
-export function TodoItem({ todo, subtasks, categories, onToggle, onDelete, onAddChild, onChangeCategory, subtasksOf }: Props) {
+export function TodoItem({ todo, subtasks, categories, onToggle, onDelete, onAddChild, onChangeCategory, onChangeDueDate, subtasksOf, showDueDateChip, forceExpanded = false }: Props) {
   const [adding, setAdding] = useState(false)
   const [collapsed, setCollapsed] = useState(
     () => localStorage.getItem(`collapsed:${todo.id}`) === 'true'
@@ -20,6 +24,7 @@ export function TodoItem({ todo, subtasks, categories, onToggle, onDelete, onAdd
   const [input, setInput] = useState('')
 
   const cat = categories.find(c => c.id === todo.category_id) ?? null
+  const isExpanded = forceExpanded || !collapsed
 
   async function handleAddChild(e: React.FormEvent) {
     e.preventDefault()
@@ -57,6 +62,12 @@ export function TodoItem({ todo, subtasks, categories, onToggle, onDelete, onAdd
             <time className="completed-at">Completed {new Date(todo.completed_at).toLocaleString()}</time>
           )}
         </span>
+        {showDueDateChip && (
+          <DueDateChip
+            dueDate={todo.due_date}
+            onChange={due_date => onChangeDueDate(todo.id, due_date)}
+          />
+        )}
         {categories.length > 0 && (
           <span className={`todo-cat${cat ? ' has-cat' : ''}`}>
             <select
@@ -71,7 +82,7 @@ export function TodoItem({ todo, subtasks, categories, onToggle, onDelete, onAdd
             {cat ? cat.name : '+'}
           </span>
         )}
-        {subtasks.length > 0 && (
+        {subtasks.length > 0 && !forceExpanded && (
           <button className="collapse" onClick={toggleCollapse} aria-label={collapsed ? 'Expand' : 'Collapse'}>
             {collapsed ? '▶' : '▼'}
           </button>
@@ -94,7 +105,7 @@ export function TodoItem({ todo, subtasks, categories, onToggle, onDelete, onAdd
           <button type="button" onClick={() => setAdding(false)}>Cancel</button>
         </form>
       )}
-      {subtasks.length > 0 && !collapsed && (
+      {subtasks.length > 0 && isExpanded && (
         <ul className="todo-list child-list">
           {subtasks.map(child => (
             <TodoItem
@@ -106,7 +117,10 @@ export function TodoItem({ todo, subtasks, categories, onToggle, onDelete, onAdd
               onDelete={onDelete}
               onAddChild={onAddChild}
               onChangeCategory={onChangeCategory}
+              onChangeDueDate={onChangeDueDate}
               subtasksOf={subtasksOf}
+              showDueDateChip={false}
+              forceExpanded={forceExpanded}
             />
           ))}
         </ul>
