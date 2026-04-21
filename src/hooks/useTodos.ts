@@ -1,50 +1,51 @@
 import { useState, useCallback, useEffect } from 'react'
+import type { Todo } from '../types'
 import * as api from '../api'
 
 export function useTodos() {
-  const [todos, setTodos] = useState([])
+  const [todos, setTodos] = useState<Todo[]>([])
   const [pending, setPending] = useState(false)
-  const [error, setError] = useState(null)
+  const [error, setError] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     try {
       setTodos(await api.fetchTodos())
     } catch (err) {
-      setError(err.message)
+      setError((err as Error).message)
     }
   }, [])
 
   useEffect(() => { load() }, [load])
 
-  async function withPending(fn) {
+  async function withPending(fn: () => Promise<unknown>) {
     setPending(true)
     try {
       await fn()
       await load()
     } catch (err) {
-      setError(err.message)
+      setError((err as Error).message)
     } finally {
       setPending(false)
     }
   }
 
-  const addTodo = (text, category_id) =>
+  const addTodo = (text: string, category_id: number | null) =>
     withPending(() => api.createTodo(text, category_id))
 
-  const addChild = (text, parent_id) =>
+  const addChild = (text: string, parent_id: number) =>
     withPending(() => api.createTodo(text, null, parent_id))
 
-  const toggleTodo = (id, done) =>
+  const toggleTodo = (id: number, done: boolean) =>
     withPending(() => api.patchTodo(id, { done: !done }))
 
-  const deleteTodo = id =>
+  const deleteTodo = (id: number) =>
     withPending(() => api.eraseTodo(id))
 
-  const changeCategory = (id, category_id) =>
+  const changeCategory = (id: number, category_id: number | null) =>
     withPending(() => api.patchTodo(id, { category_id }))
 
   const subtasksOf = useCallback(
-    id => todos.filter(t => t.parent_id === id),
+    (id: number) => todos.filter(t => t.parent_id === id),
     [todos]
   )
 

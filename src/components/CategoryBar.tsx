@@ -1,13 +1,22 @@
 import { useState } from 'react'
+import type { Category } from '../types'
 
 const PRESET_COLORS = ['#ef4444','#f97316','#eab308','#22c55e','#14b8a6','#3b82f6','#8b5cf6','#ec4899']
 
-export function CategoryBar({ categories, activeCat, onSelect, onAdd, onDelete }) {
+interface Props {
+  categories: Category[]
+  activeCat: number | null
+  onSelect: (id: number | null) => void
+  onAdd: (name: string, color: string) => Promise<void>
+  onDelete: (id: number) => Promise<void>
+}
+
+export function CategoryBar({ categories, activeCat, onSelect, onAdd, onDelete }: Props) {
   const [adding, setAdding] = useState(false)
   const [name, setName] = useState('')
   const [color, setColor] = useState(PRESET_COLORS[5])
 
-  async function handleSubmit(e) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!name.trim()) return
     await onAdd(name.trim(), color)

@@ -1,6 +1,18 @@
 import { useState } from 'react'
+import type { Todo, Category } from '../types'
 
-export function TodoItem({ todo, subtasks, categories, onToggle, onDelete, onAddChild, onChangeCategory, subtasksOf }) {
+interface Props {
+  todo: Todo
+  subtasks: Todo[]
+  categories: Category[]
+  onToggle: (id: number, done: boolean) => void
+  onDelete: (id: number) => void
+  onAddChild: (text: string, parent_id: number) => void
+  onChangeCategory: (id: number, category_id: number | null) => void
+  subtasksOf: (id: number) => Todo[]
+}
+
+export function TodoItem({ todo, subtasks, categories, onToggle, onDelete, onAddChild, onChangeCategory, subtasksOf }: Props) {
   const [adding, setAdding] = useState(false)
   const [collapsed, setCollapsed] = useState(
     () => localStorage.getItem(`collapsed:${todo.id}`) === 'true'
@@ -9,7 +21,7 @@ export function TodoItem({ todo, subtasks, categories, onToggle, onDelete, onAdd
 
   const cat = categories.find(c => c.id === todo.category_id) ?? null
 
-  async function handleAddChild(e) {
+  async function handleAddChild(e: React.FormEvent) {
     e.preventDefault()
     const text = input.trim()
     if (!text) return
@@ -21,7 +33,7 @@ export function TodoItem({ todo, subtasks, categories, onToggle, onDelete, onAdd
   function toggleCollapse() {
     setCollapsed(v => {
       const next = !v
-      localStorage.setItem(`collapsed:${todo.id}`, next)
+      localStorage.setItem(`collapsed:${todo.id}`, String(next))
       return next
     })
   }

@@ -7,7 +7,7 @@ import './App.css'
 
 export default function App() {
   const [input, setInput] = useState('')
-  const [activeCat, setActiveCat] = useState(null)
+  const [activeCat, setActiveCat] = useState<number | null>(null)
 
   const {
     todos,
@@ -27,15 +27,14 @@ export default function App() {
     categories,
     error: catError,
     clearError: clearCatError,
-    load: loadCategories,
     addCategory,
     deleteCategory: deleteCategoryBase,
   } = useCategories()
 
-  const error = todoError || catError
+  const error = todoError ?? catError
   const clearError = () => { clearTodoError(); clearCatError() }
 
-  async function handleAddTodo(e) {
+  async function handleAddTodo(e: React.FormEvent) {
     e.preventDefault()
     const text = input.trim()
     if (!text) return
@@ -43,12 +42,12 @@ export default function App() {
     await addTodo(text, activeCat)
   }
 
-  async function handleDeleteTodo(id) {
+  async function handleDeleteTodo(id: number) {
     if (!window.confirm('Delete this task and all its subtasks?')) return
     await deleteTodo(id)
   }
 
-  async function handleDeleteCategory(id) {
+  async function handleDeleteCategory(id: number) {
     await deleteCategoryBase(id)
     await loadTodos()
     if (activeCat === id) setActiveCat(null)

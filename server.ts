@@ -1,4 +1,4 @@
-import express from 'express'
+import express, { Request, Response } from 'express'
 import Database from 'better-sqlite3'
 import cors from 'cors'
 import { fileURLToPath } from 'url'
@@ -28,7 +28,7 @@ db.exec(`
   )
 `)
 
-const todoCols = db.prepare("PRAGMA table_info(todos)").all().map(c => c.name)
+const todoCols = (db.prepare("PRAGMA table_info(todos)").all() as { name: string }[]).map(c => c.name)
 if (!todoCols.includes('completed_at')) db.exec('ALTER TABLE todos ADD COLUMN completed_at TEXT')
 if (!todoCols.includes('created_at')) {
   db.exec('ALTER TABLE todos ADD COLUMN created_at TEXT')
@@ -37,34 +37,50 @@ if (!todoCols.includes('created_at')) {
 if (!todoCols.includes('parent_id')) db.exec('ALTER TABLE todos ADD COLUMN parent_id INTEGER REFERENCES todos(id)')
 if (!todoCols.includes('category_id')) db.exec('ALTER TABLE todos ADD COLUMN category_id INTEGER REFERENCES categories(id)')
 
+interface TodoRow {
+  id: number
+  text: string
+  done: number
+  completed_at: string | null
+  created_at: string
+  parent_id: number | null
+  category_id: number | null
+}
+
+interface CategoryRow {
+  id: number
+  name: string
+  color: string
+}
+
 const stmts = {
-  getAll:        db.prepare('SELECT * FROM todos ORDER BY id'),
-  getById:       db.prepare('SELECT id FROM todos WHERE id = ?'),
-  getChildren:   db.prepare('SELECT id FROM todos WHERE parent_id = ?'),
-  insert:        db.prepare('INSERT INTO todos (text, parent_id, created_at, category_id) VALUES (?, ?, ?, ?)'),
-  update:        db.prepare('UPDATE todos SET done = ?, completed_at = ? WHERE id = ?'),
-  updateCat:     db.prepare('UPDATE todos SET category_id = ? WHERE id = ?'),
-  delete:        db.prepare('DELETE FROM todos WHERE id = ?'),
-  getAllCats:    db.prepare('SELECT * FROM categories ORDER BY id'),
-  insertCat:    db.prepare('INSERT INTO categories (name, color) VALUES (?, ?)'),
-  deleteCat:    db.prepare('DELETE FROM categories WHERE id = ?'),
-  clearTodoCat: db.prepare('UPDATE todos SET category_id = NULL WHERE category_id = ?'),
+  getAll:        db.prepare<[], TodoRow>('SELECT * FROM todos ORDER BY id'),
+  getById:       db.prepare<[number], { id: number }>('SELECT id FROM todos WHERE id = ?'),
+  getChildren:   db.prepare<[number], { id: number }>('SELECT id FROM todos WHERE parent_id = ?'),
+  insert:        db.prepare<[string, number | null, string, number | null], Database.RunResult>('INSERT INTO todos (text, parent_id, created_at, category_id) VALUES (?, ?, ?, ?)'),
+  update:        db.prepare<[number, string | null, number], Database.RunResult>('UPDATE todos SET done = ?, completed_at = ? WHERE id = ?'),
+  updateCat:     db.prepare<[number | null, number], Database.RunResult>('UPDATE todos SET category_id = ? WHERE id = ?'),
+  delete:        db.prepare<[number], Database.RunResult>('DELETE FROM todos WHERE id = ?'),
+  getAllCats:    db.prepare<[], CategoryRow>('SELECT * FROM categories ORDER BY id'),
+  insertCat:    db.prepare<[string, string], Database.RunResult>('INSERT INTO categories (name, color) VALUES (?, ?)'),
+  deleteCat:    db.prepare<[number], Database.RunResult>('DELETE FROM categories WHERE id = ?'),
+  clearTodoCat: db.prepare<[number], Database.RunResult>('UPDATE todos SET category_id = NULL WHERE category_id = ?'),
 }
 
 app.use(cors({ origin: 'http://localhost:5173' }))
 app.use(express.json())
 
-app.get('/api/todos', (req, res) => {
+app.get('/api/todos', (_req: Request, res: Response) => {
   try {
     res.json(stmts.getAll.all())
   } catch (err) {
-    res.status(500).json({ error: err.message })
+    res.status(500).json({ error: (err as Error).message })
   }
 })
 
-app.post('/api/todos', (req, res) => {
+app.post('/api/todos', (req: Request, res: Response) => {
   try {
-    const { text, parent_id = null, category_id = null } = req.body
+    const { text, parent_id = null, category_id = null } = req.body as { text: string; parent_id?: number | null; category_id?: number | null }
     if (!text || typeof text !== 'string' || !text.trim()) {
       return res.status(400).json({ error: 'text is required' })
     }
@@ -76,56 +92,56 @@ app.post('/api/todos', (req, res) => {
     const result = stmts.insert.run(text.trim(), parent_id, created_at, category_id)
     res.json({ id: result.lastInsertRowid, text: text.trim(), done: 0, completed_at: null, created_at, parent_id, category_id })
   } catch (err) {
-    res.status(500).json({ error: err.message })
+    res.status(500).json({ error: (err as Error).message })
   }
 })
 
-app.patch('/api/todos/:id', (req, res) => {
+app.patch('/api/todos/:id', (req: Request, res: Response) => {
   try {
-    const { done, category_id } = req.body
+    const { done, category_id } = req.body as { done?: boolean; category_id?: number | null }
     if (done !== undefined) {
       const completed_at = done ? new Date().toISOString() : null
-      function updateTree(id) {
+      function updateTree(id: number) {
         stmts.update.run(done ? 1 : 0, completed_at, id)
         if (done) {
           for (const child of stmts.getChildren.all(id)) updateTree(child.id)
         }
       }
-      db.transaction(updateTree)(req.params.id)
+      db.transaction(updateTree)(Number(req.params.id))
     }
     if ('category_id' in req.body) {
-      stmts.updateCat.run(category_id ?? null, req.params.id)
+      stmts.updateCat.run(category_id ?? null, Number(req.params.id))
     }
     res.json({ ok: true })
   } catch (err) {
-    res.status(500).json({ error: err.message })
+    res.status(500).json({ error: (err as Error).message })
   }
 })
 
-app.delete('/api/todos/:id', (req, res) => {
+app.delete('/api/todos/:id', (req: Request, res: Response) => {
   try {
-    function deleteTree(id) {
+    function deleteTree(id: number) {
       for (const child of stmts.getChildren.all(id)) deleteTree(child.id)
       stmts.delete.run(id)
     }
-    db.transaction(deleteTree)(req.params.id)
+    db.transaction(deleteTree)(Number(req.params.id))
     res.json({ ok: true })
   } catch (err) {
-    res.status(500).json({ error: err.message })
+    res.status(500).json({ error: (err as Error).message })
   }
 })
 
-app.get('/api/categories', (req, res) => {
+app.get('/api/categories', (_req: Request, res: Response) => {
   try {
     res.json(stmts.getAllCats.all())
   } catch (err) {
-    res.status(500).json({ error: err.message })
+    res.status(500).json({ error: (err as Error).message })
   }
 })
 
-app.post('/api/categories', (req, res) => {
+app.post('/api/categories', (req: Request, res: Response) => {
   try {
-    const { name, color } = req.body
+    const { name, color } = req.body as { name: string; color: string }
     if (!name || typeof name !== 'string' || !name.trim()) {
       return res.status(400).json({ error: 'name is required' })
     }
@@ -135,17 +151,17 @@ app.post('/api/categories', (req, res) => {
     const result = stmts.insertCat.run(name.trim(), color)
     res.json({ id: result.lastInsertRowid, name: name.trim(), color })
   } catch (err) {
-    res.status(500).json({ error: err.message })
+    res.status(500).json({ error: (err as Error).message })
   }
 })
 
-app.delete('/api/categories/:id', (req, res) => {
+app.delete('/api/categories/:id', (req: Request, res: Response) => {
   try {
-    stmts.clearTodoCat.run(req.params.id)
-    stmts.deleteCat.run(req.params.id)
+    stmts.clearTodoCat.run(Number(req.params.id))
+    stmts.deleteCat.run(Number(req.params.id))
     res.json({ ok: true })
   } catch (err) {
-    res.status(500).json({ error: err.message })
+    res.status(500).json({ error: (err as Error).message })
   }
 })
 
