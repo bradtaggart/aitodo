@@ -84,6 +84,12 @@ describe('POST /api/todos', () => {
     expect(res.status).toBe(200)
     expect(res.body.category_id).toBe(cat.body.id)
   })
+
+  it('returns 400 when category_id does not exist', async () => {
+    const res = await request.post('/api/todos').send({ text: 'task', category_id: 999 })
+    expect(res.status).toBe(400)
+    expect(res.body.error).toBe('category not found')
+  })
 })
 
 describe('PATCH /api/todos/:id', () => {
@@ -110,7 +116,7 @@ describe('PATCH /api/todos/:id', () => {
     expect(updated.completed_at).toBeNull()
   })
 
-  it('cascades done=true to all children', async () => {
+  it('cascades done=true to all children and sets completed_at', async () => {
     const parent = await request.post('/api/todos').send({ text: 'parent' })
     const child = await request.post('/api/todos').send({ text: 'child', parent_id: parent.body.id })
     const grandchild = await request.post('/api/todos').send({ text: 'grandchild', parent_id: child.body.id })
@@ -122,7 +128,26 @@ describe('PATCH /api/todos/:id', () => {
     for (const id of ids) {
       const t = todos.body.find((t: { id: number }) => t.id === id)
       expect(t.done).toBe(1)
+      expect(t.completed_at).not.toBeNull()
     }
+  })
+
+  it('marking parent undone does not cascade to children', async () => {
+    const parent = await request.post('/api/todos').send({ text: 'parent' })
+    const child = await request.post('/api/todos').send({ text: 'child', parent_id: parent.body.id })
+
+    await request.patch(`/api/todos/${parent.body.id}`).send({ done: true })
+    await request.patch(`/api/todos/${parent.body.id}`).send({ done: false })
+
+    const todos = await request.get('/api/todos')
+    const childTodo = todos.body.find((t: { id: number }) => t.id === child.body.id)
+    expect(childTodo.done).toBe(1)
+  })
+
+  it('returns ok for PATCH on non-existent id', async () => {
+    const res = await request.patch('/api/todos/999').send({ done: true })
+    expect(res.status).toBe(200)
+    expect(res.body.ok).toBe(true)
   })
 
   it('updates category_id', async () => {
@@ -157,6 +182,12 @@ describe('DELETE /api/todos/:id', () => {
 
     const todos = await request.get('/api/todos')
     expect(todos.body).toHaveLength(0)
+  })
+
+  it('returns ok for DELETE on non-existent id', async () => {
+    const res = await request.delete('/api/todos/999')
+    expect(res.status).toBe(200)
+    expect(res.body.ok).toBe(true)
   })
 
   it('cascades delete to all children', async () => {
@@ -223,6 +254,12 @@ describe('POST /api/categories', () => {
 })
 
 describe('DELETE /api/categories/:id', () => {
+  it('returns ok for DELETE on non-existent id', async () => {
+    const res = await request.delete('/api/categories/999')
+    expect(res.status).toBe(200)
+    expect(res.body.ok).toBe(true)
+  })
+
   it('deletes a category', async () => {
     const created = await request.post('/api/categories').send({ name: 'Work', color: '#ff0000' })
     const res = await request.delete(`/api/categories/${created.body.id}`)

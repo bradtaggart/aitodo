@@ -21,6 +21,8 @@ interface CategoryRow {
 }
 
 export function initDb(db: Database.Database) {
+  db.pragma('foreign_keys = ON')
+
   db.exec(`
     CREATE TABLE IF NOT EXISTS categories (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -55,6 +57,7 @@ export function createApp(db: Database.Database) {
   const stmts = {
     getAll:        db.prepare<[], TodoRow>('SELECT * FROM todos ORDER BY id'),
     getById:       db.prepare<[number], { id: number }>('SELECT id FROM todos WHERE id = ?'),
+    getCatById:    db.prepare<[number], { id: number }>('SELECT id FROM categories WHERE id = ?'),
     getChildren:   db.prepare<[number], { id: number }>('SELECT id FROM todos WHERE parent_id = ?'),
     insert:        db.prepare<[string, number | null, string, number | null], Database.RunResult>('INSERT INTO todos (text, parent_id, created_at, category_id) VALUES (?, ?, ?, ?)'),
     update:        db.prepare<[number, string | null, number], Database.RunResult>('UPDATE todos SET done = ?, completed_at = ? WHERE id = ?'),
@@ -87,6 +90,10 @@ export function createApp(db: Database.Database) {
       if (parent_id !== null) {
         const parent = stmts.getById.get(parent_id)
         if (!parent) return res.status(400).json({ error: 'parent not found' })
+      }
+      if (category_id !== null) {
+        const cat = stmts.getCatById.get(category_id)
+        if (!cat) return res.status(400).json({ error: 'category not found' })
       }
       const created_at = new Date().toISOString()
       const result = stmts.insert.run(text.trim(), parent_id, created_at, category_id)
