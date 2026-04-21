@@ -173,6 +173,25 @@ describe('PATCH /api/todos/:id', () => {
   })
 })
 
+describe('PATCH /api/todos/:id due_date', () => {
+  it('sets a due date', async () => {
+    const created = await request.post('/api/todos').send({ text: 'task' })
+    await request.patch(`/api/todos/${created.body.id}`).send({ due_date: '2026-05-01' })
+    const todos = await request.get('/api/todos')
+    const updated = todos.body.find((t: { id: number }) => t.id === created.body.id)
+    expect(updated.due_date).toBe('2026-05-01')
+  })
+
+  it('clears a due date when set to null', async () => {
+    const created = await request.post('/api/todos').send({ text: 'task' })
+    await request.patch(`/api/todos/${created.body.id}`).send({ due_date: '2026-05-01' })
+    await request.patch(`/api/todos/${created.body.id}`).send({ due_date: null })
+    const todos = await request.get('/api/todos')
+    const updated = todos.body.find((t: { id: number }) => t.id === created.body.id)
+    expect(updated.due_date).toBeNull()
+  })
+})
+
 describe('DELETE /api/todos/:id', () => {
   it('deletes a todo', async () => {
     const created = await request.post('/api/todos').send({ text: 'to delete' })

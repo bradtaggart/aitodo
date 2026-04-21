@@ -12,6 +12,7 @@ interface TodoRow {
   created_at: string
   parent_id: number | null
   category_id: number | null
+  due_date: string | null
 }
 
 interface CategoryRow {
@@ -51,6 +52,7 @@ export function initDb(db: Database.Database) {
   }
   if (!todoCols.includes('parent_id')) db.exec('ALTER TABLE todos ADD COLUMN parent_id INTEGER REFERENCES todos(id)')
   if (!todoCols.includes('category_id')) db.exec('ALTER TABLE todos ADD COLUMN category_id INTEGER REFERENCES categories(id)')
+  if (!todoCols.includes('due_date')) db.exec('ALTER TABLE todos ADD COLUMN due_date TEXT')
 }
 
 export function createApp(db: Database.Database) {
@@ -67,6 +69,7 @@ export function createApp(db: Database.Database) {
     insertCat:    db.prepare<[string, string], Database.RunResult>('INSERT INTO categories (name, color) VALUES (?, ?)'),
     deleteCat:    db.prepare<[number], Database.RunResult>('DELETE FROM categories WHERE id = ?'),
     clearTodoCat: db.prepare<[number], Database.RunResult>('UPDATE todos SET category_id = NULL WHERE category_id = ?'),
+    updateDueDate: db.prepare<[string | null, number], Database.RunResult>('UPDATE todos SET due_date = ? WHERE id = ?'),
   }
 
   const app = express()
@@ -97,7 +100,7 @@ export function createApp(db: Database.Database) {
       }
       const created_at = new Date().toISOString()
       const result = stmts.insert.run(text.trim(), parent_id, created_at, category_id)
-      res.json({ id: result.lastInsertRowid, text: text.trim(), done: 0, completed_at: null, created_at, parent_id, category_id })
+      res.json({ id: result.lastInsertRowid, text: text.trim(), done: 0, completed_at: null, created_at, parent_id, category_id, due_date: null })
     } catch (err) {
       res.status(500).json({ error: (err as Error).message })
     }
@@ -105,7 +108,7 @@ export function createApp(db: Database.Database) {
 
   app.patch('/api/todos/:id', (req: Request, res: Response) => {
     try {
-      const { done, category_id } = req.body as { done?: boolean; category_id?: number | null }
+      const { done, category_id, due_date } = req.body as { done?: boolean; category_id?: number | null; due_date?: string | null }
       if (done !== undefined) {
         const completed_at = done ? new Date().toISOString() : null
         function updateTree(id: number) {
@@ -118,6 +121,9 @@ export function createApp(db: Database.Database) {
       }
       if ('category_id' in req.body) {
         stmts.updateCat.run(category_id ?? null, Number(req.params.id))
+      }
+      if ('due_date' in req.body) {
+        stmts.updateDueDate.run(due_date ?? null, Number(req.params.id))
       }
       res.json({ ok: true })
     } catch (err) {
