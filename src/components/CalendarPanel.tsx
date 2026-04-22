@@ -36,6 +36,7 @@ export function CalendarPanel({ todos, selectedDate, onDateSelect, open, onToggl
       {open && (
         <DayPicker
           mode="single"
+          numberOfMonths={2}
           selected={selectedDate ?? undefined}
           onSelect={handleSelect}
           modifiers={{ hasTasks: dueDates }}
