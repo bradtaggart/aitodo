@@ -123,6 +123,9 @@ export function createApp(db: Database.Database) {
         stmts.updateCat.run(category_id ?? null, Number(req.params.id))
       }
       if ('due_date' in req.body) {
+        if (due_date !== null && due_date !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(due_date)) {
+          return res.status(400).json({ error: 'due_date must be YYYY-MM-DD or null' })
+        }
         stmts.updateDueDate.run(due_date ?? null, Number(req.params.id))
       }
       res.json({ ok: true })

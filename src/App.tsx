@@ -39,7 +39,7 @@ export default function App() {
   const error = todoError ?? catError
   const clearError = () => { clearTodoError(); clearCatError() }
 
-  async function handleAddTodo(e: React.FormEvent) {
+  async function handleAddTodo(e: React.SubmitEvent<HTMLFormElement>) {
     e.preventDefault()
     const text = input.trim()
     if (!text) return

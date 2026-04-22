@@ -26,7 +26,7 @@ export function TodoItem({ todo, subtasks, categories, onToggle, onDelete, onAdd
   const cat = categories.find(c => c.id === todo.category_id) ?? null
   const isExpanded = forceExpanded || !collapsed
 
-  async function handleAddChild(e: React.FormEvent) {
+  async function handleAddChild(e: React.SubmitEvent<HTMLFormElement>) {
     e.preventDefault()
     const text = input.trim()
     if (!text) return

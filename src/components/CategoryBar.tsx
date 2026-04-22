@@ -16,7 +16,7 @@ export function CategoryBar({ categories, activeCat, onSelect, onAdd, onDelete }
   const [name, setName] = useState('')
   const [color, setColor] = useState(PRESET_COLORS[5])
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.SubmitEvent<HTMLFormElement>) {
     e.preventDefault()
     if (!name.trim()) return
     await onAdd(name.trim(), color)
