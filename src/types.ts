@@ -7,6 +7,7 @@ export interface Todo {
   parent_id: number | null
   category_id: number | null
   due_date: string | null
+  description: string | null
 }
 
 export interface Category {
