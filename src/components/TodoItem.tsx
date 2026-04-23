@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { Todo, Category } from '../types'
 import { DueDateChip } from './DueDateChip'
+import { DescriptionField } from './DescriptionField'
 
 interface Props {
   todo: Todo
@@ -11,12 +12,13 @@ interface Props {
   onAddChild: (text: string, parent_id: number) => void
   onChangeCategory: (id: number, category_id: number | null) => void
   onChangeDueDate: (id: number, due_date: string | null) => void
+  onChangeDescription: (id: number, description: string | null) => void
   subtasksOf: (id: number) => Todo[]
   showDueDateChip: boolean
   forceExpanded?: boolean
 }
 
-export function TodoItem({ todo, subtasks, categories, onToggle, onDelete, onAddChild, onChangeCategory, onChangeDueDate, subtasksOf, showDueDateChip, forceExpanded = false }: Props) {
+export function TodoItem({ todo, subtasks, categories, onToggle, onDelete, onAddChild, onChangeCategory, onChangeDueDate, onChangeDescription, subtasksOf, showDueDateChip, forceExpanded = false }: Props) {
   const [adding, setAdding] = useState(false)
   const [collapsed, setCollapsed] = useState(
     () => localStorage.getItem(`collapsed:${todo.id}`) === 'true'
@@ -92,6 +94,10 @@ export function TodoItem({ todo, subtasks, categories, onToggle, onDelete, onAdd
         )}
         <button className="delete" onClick={() => onDelete(todo.id)} aria-label="Delete task">×</button>
       </div>
+      <DescriptionField
+        value={todo.description}
+        onChange={description => onChangeDescription(todo.id, description)}
+      />
       {adding && (
         <form onSubmit={handleAddChild} className="child-form">
           <input
@@ -118,6 +124,7 @@ export function TodoItem({ todo, subtasks, categories, onToggle, onDelete, onAdd
               onAddChild={onAddChild}
               onChangeCategory={onChangeCategory}
               onChangeDueDate={onChangeDueDate}
+              onChangeDescription={onChangeDescription}
               subtasksOf={subtasksOf}
               showDueDateChip={false}
               forceExpanded={forceExpanded}
