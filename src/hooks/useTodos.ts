@@ -47,6 +47,9 @@ export function useTodos() {
   const changeDueDate = (id: number, due_date: string | null) =>
     withPending(() => api.patchTodo(id, { due_date }))
 
+  const changeDescription = (id: number, description: string | null) =>
+    withPending(() => api.patchTodo(id, { description }))
+
   const subtasksOf = useCallback(
     (id: number) => todos.filter(t => t.parent_id === id),
     [todos]
@@ -65,5 +68,6 @@ export function useTodos() {
     deleteTodo,
     changeCategory,
     changeDueDate,
+    changeDescription,
   }
 }
