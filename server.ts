@@ -103,7 +103,7 @@ export function createApp(db: Database.Database) {
       }
       const created_at = new Date().toISOString()
       const result = stmts.insert.run(text.trim(), parent_id, created_at, category_id)
-      res.json({ id: result.lastInsertRowid, text: text.trim(), done: 0, completed_at: null, created_at, parent_id, category_id, due_date: null })
+      res.json({ id: result.lastInsertRowid, text: text.trim(), done: 0, completed_at: null, created_at, parent_id, category_id, due_date: null, description: null })
     } catch (err) {
       res.status(500).json({ error: (err as Error).message })
     }
