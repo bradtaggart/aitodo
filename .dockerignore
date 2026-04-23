@@ -1,0 +1,7 @@
+node_modules
+dist
+todos.db
+.superpowers
+.claude
+docs
+*.md
