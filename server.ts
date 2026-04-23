@@ -76,7 +76,9 @@ export function createApp(db: Database.Database) {
   }
 
   const app = express()
-  app.use(cors({ origin: 'http://localhost:5173' }))
+  if (process.env.NODE_ENV !== 'production') {
+    app.use(cors({ origin: 'http://localhost:5173' }))
+  }
   app.use(express.json())
 
   app.get('/api/todos', (_req: Request, res: Response) => {
@@ -192,11 +194,19 @@ export function createApp(db: Database.Database) {
     }
   })
 
+  if (process.env.NODE_ENV === 'production') {
+    app.use(express.static('dist'))
+    app.use((_req: Request, res: Response) => {
+      res.sendFile('dist/index.html', { root: '.' })
+    })
+  }
+
   return app
 }
 
-const dbPath = join(dirname(fileURLToPath(import.meta.url)), 'todos.db')
+const dbPath = process.env.DB_PATH ?? join(dirname(fileURLToPath(import.meta.url)), 'todos.db')
 const db = new Database(dbPath)
 initDb(db)
 const app = createApp(db)
-app.listen(3001, () => console.log('API server running on http://localhost:3001'))
+const PORT = Number(process.env.PORT ?? 3001)
+app.listen(PORT, () => console.log(`API server running on http://localhost:${PORT}`))
