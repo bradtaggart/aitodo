@@ -26,6 +26,7 @@ export default function App() {
     deleteTodo,
     changeCategory,
     changeDueDate,
+    changeDescription,
   } = useTodos()
 
   const {
@@ -128,6 +129,7 @@ export default function App() {
               onAddChild={addChild}
               onChangeCategory={changeCategory}
               onChangeDueDate={changeDueDate}
+              onChangeDescription={changeDescription}
               subtasksOf={subtasksOf}
               showDueDateChip={selectedDate === null}
               forceExpanded={selectedDate !== null}
