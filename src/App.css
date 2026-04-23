@@ -587,6 +587,12 @@ h1 {
   border-radius: 4px;
   padding: 2px 4px;
   margin: -2px -4px;
+  background: none;
+  border: none;
+  font-family: var(--sans);
+  text-align: left;
+  width: 100%;
+  display: block;
 
   &.empty {
     color: var(--border);

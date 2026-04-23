@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 
 interface Props {
   value: string | null
@@ -8,6 +8,7 @@ interface Props {
 export function DescriptionField({ value, onChange }: Props) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(value ?? '')
+  const cancelledRef = useRef(false)
 
   function startEditing() {
     setDraft(value ?? '')
@@ -15,6 +16,10 @@ export function DescriptionField({ value, onChange }: Props) {
   }
 
   function handleBlur() {
+    if (cancelledRef.current) {
+      cancelledRef.current = false
+      return
+    }
     onChange(draft.trim() || null)
     setEditing(false)
   }
@@ -22,7 +27,7 @@ export function DescriptionField({ value, onChange }: Props) {
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === 'Escape') {
       e.preventDefault()
-      setDraft(value ?? '')
+      cancelledRef.current = true
       setEditing(false)
     }
   }
@@ -42,14 +47,13 @@ export function DescriptionField({ value, onChange }: Props) {
           <div className="description-hint">Click away to save · Esc to cancel</div>
         </>
       ) : (
-        <div
+        <button
           className={`description-display${value ? '' : ' empty'}`}
           onClick={startEditing}
-          role="button"
           aria-label={value ? 'Edit description' : 'Add description'}
         >
           {value || 'Add a description…'}
-        </div>
+        </button>
       )}
     </div>
   )
