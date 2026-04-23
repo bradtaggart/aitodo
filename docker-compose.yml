@@ -1,0 +1,14 @@
+services:
+  app:
+    build: .
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=production
+      - DB_PATH=/app/data/todos.db
+    volumes:
+      - todos-data:/app/data
+    restart: unless-stopped
+
+volumes:
+  todos-data:
