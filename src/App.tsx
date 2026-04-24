@@ -78,7 +78,7 @@ export default function App() {
         onToggle={() => setCalendarOpen(v => !v)}
       />
       <main className="main-panel">
-        <h1>TODO Build by Claude Code</h1>
+        <h1>What's Next</h1>
         {error && (
           <p className="error">
             {error}
