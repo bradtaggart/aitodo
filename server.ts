@@ -86,6 +86,35 @@ export function initDb(db: Database.Database) {
   }
 }
 
+function nextOccurrence(template: TemplateRow, currentDue: string): string {
+  const d = new Date(currentDue + 'T12:00:00Z')
+  switch (template.recurrence_type) {
+    case 'daily':
+      d.setUTCDate(d.getUTCDate() + 1)
+      break
+    case 'weekly': {
+      const mask = template.day_mask!
+      for (let i = 1; i <= 7; i++) {
+        const candidate = new Date(d)
+        candidate.setUTCDate(d.getUTCDate() + i)
+        if (mask & (1 << candidate.getUTCDay())) {
+          return candidate.toISOString().slice(0, 10)
+        }
+      }
+      break
+    }
+    case 'monthly': {
+      d.setUTCMonth(d.getUTCMonth() + 1)
+      d.setUTCDate(template.day_of_month!)
+      break
+    }
+    case 'custom':
+      d.setUTCDate(d.getUTCDate() + template.interval_days!)
+      break
+  }
+  return d.toISOString().slice(0, 10)
+}
+
 export function createApp(db: Database.Database) {
   const stmts = {
     getAll:        db.prepare<[], TodoRow>('SELECT * FROM todos ORDER BY id'),
@@ -102,6 +131,12 @@ export function createApp(db: Database.Database) {
     clearTodoCat: db.prepare<[number], Database.RunResult>('UPDATE todos SET category_id = NULL WHERE category_id = ?'),
     updateDueDate: db.prepare<[string | null, number], Database.RunResult>('UPDATE todos SET due_date = ? WHERE id = ?'),
     updateDescription: db.prepare<[string | null, number], Database.RunResult>('UPDATE todos SET description = ? WHERE id = ?'),
+    getAllTemplates:     db.prepare<[], TemplateRow>('SELECT * FROM recurring_templates ORDER BY id'),
+    getTemplateById:    db.prepare<[number], TemplateRow>('SELECT * FROM recurring_templates WHERE id = ?'),
+    insertTemplate:     db.prepare<[string, number | null, string | null, string, number | null, number | null, number | null], Database.RunResult>(
+                          'INSERT INTO recurring_templates (text, category_id, description, recurrence_type, day_mask, interval_days, day_of_month) VALUES (?, ?, ?, ?, ?, ?, ?)'),
+    getTodo:            db.prepare<[number], TodoRow>('SELECT * FROM todos WHERE id = ?'),
+    updateTodoTemplate: db.prepare<[number, number], Database.RunResult>('UPDATE todos SET template_id = ? WHERE id = ?'),
   }
 
   const app = express()
@@ -218,6 +253,58 @@ export function createApp(db: Database.Database) {
       stmts.clearTodoCat.run(Number(req.params.id))
       stmts.deleteCat.run(Number(req.params.id))
       res.json({ ok: true })
+    } catch (err) {
+      res.status(500).json({ error: (err as Error).message })
+    }
+  })
+
+  app.get('/api/templates', (_req: Request, res: Response) => {
+    try {
+      res.json(stmts.getAllTemplates.all())
+    } catch (err) {
+      res.status(500).json({ error: (err as Error).message })
+    }
+  })
+
+  app.post('/api/templates', (req: Request, res: Response) => {
+    try {
+      const { todo_id, recurrence_type, day_mask, interval_days } =
+        req.body as { todo_id?: number; recurrence_type?: string; day_mask?: number; interval_days?: number }
+
+      if (!todo_id) return res.status(400).json({ error: 'todo_id is required' })
+
+      const validTypes = ['daily', 'weekly', 'monthly', 'custom']
+      if (!recurrence_type || !validTypes.includes(recurrence_type)) {
+        return res.status(400).json({ error: 'recurrence_type must be daily|weekly|monthly|custom' })
+      }
+      if (recurrence_type === 'weekly' && !(day_mask && day_mask > 0)) {
+        return res.status(400).json({ error: 'day_mask required and non-zero for weekly' })
+      }
+      if (recurrence_type === 'custom' && (!interval_days || interval_days < 1)) {
+        return res.status(400).json({ error: 'interval_days required and >= 1 for custom' })
+      }
+
+      const todo = stmts.getTodo.get(Number(todo_id))
+      if (!todo) return res.status(400).json({ error: 'todo not found' })
+      if (!todo.due_date) return res.status(400).json({ error: 'todo must have a due_date' })
+
+      const dom = recurrence_type === 'monthly' ? Number(todo.due_date.slice(8, 10)) : null
+      const maskVal = recurrence_type === 'weekly' ? (day_mask ?? null) : null
+      const intervalVal = recurrence_type === 'custom' ? (interval_days ?? null) : null
+
+      const result = db.transaction(() => {
+        const tplResult = stmts.insertTemplate.run(
+          todo.text, todo.category_id, todo.description,
+          recurrence_type, maskVal, intervalVal, dom
+        )
+        const templateId = Number(tplResult.lastInsertRowid)
+        stmts.updateTodoTemplate.run(templateId, Number(todo_id))
+        const template = stmts.getTemplateById.get(templateId)!
+        const updatedTodo = stmts.getTodo.get(Number(todo_id))!
+        return { template, todo: { ...updatedTodo, done: !!updatedTodo.done } }
+      })()
+
+      res.json(result)
     } catch (err) {
       res.status(500).json({ error: (err as Error).message })
     }

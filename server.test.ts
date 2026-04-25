@@ -312,3 +312,104 @@ describe('DELETE /api/categories/:id', () => {
     expect(updated.category_id).toBeNull()
   })
 })
+
+describe('GET /api/templates', () => {
+  it('returns empty array when no templates exist', async () => {
+    const res = await request.get('/api/templates')
+    expect(res.status).toBe(200)
+    expect(res.body).toEqual([])
+  })
+})
+
+describe('POST /api/templates', () => {
+  async function makeTodoWithDue(due_date: string) {
+    const todo = await request.post('/api/todos').send({ text: 'standup' })
+    await request.patch(`/api/todos/${todo.body.id}`).send({ due_date })
+    return todo.body.id as number
+  }
+
+  it('creates a daily template and links the todo', async () => {
+    const todoId = await makeTodoWithDue('2026-04-28')
+    const res = await request.post('/api/templates').send({
+      todo_id: todoId,
+      recurrence_type: 'daily',
+    })
+    expect(res.status).toBe(200)
+    expect(res.body.template.recurrence_type).toBe('daily')
+    expect(res.body.template.text).toBe('standup')
+    expect(res.body.todo.template_id).toBe(res.body.template.id)
+    expect(res.body.todo.id).toBe(todoId)
+  })
+
+  it('creates a weekly template with day_mask', async () => {
+    const todoId = await makeTodoWithDue('2026-04-28')
+    const res = await request.post('/api/templates').send({
+      todo_id: todoId,
+      recurrence_type: 'weekly',
+      day_mask: 2,
+    })
+    expect(res.status).toBe(200)
+    expect(res.body.template.day_mask).toBe(2)
+  })
+
+  it('creates a custom template with interval_days', async () => {
+    const todoId = await makeTodoWithDue('2026-04-28')
+    const res = await request.post('/api/templates').send({
+      todo_id: todoId,
+      recurrence_type: 'custom',
+      interval_days: 14,
+    })
+    expect(res.status).toBe(200)
+    expect(res.body.template.interval_days).toBe(14)
+  })
+
+  it('creates a monthly template and derives day_of_month from due_date', async () => {
+    const todoId = await makeTodoWithDue('2026-04-15')
+    const res = await request.post('/api/templates').send({
+      todo_id: todoId,
+      recurrence_type: 'monthly',
+    })
+    expect(res.status).toBe(200)
+    expect(res.body.template.day_of_month).toBe(15)
+  })
+
+  it('returns 400 when todo_id is missing', async () => {
+    const res = await request.post('/api/templates').send({ recurrence_type: 'daily' })
+    expect(res.status).toBe(400)
+  })
+
+  it('returns 400 when todo does not exist', async () => {
+    const res = await request.post('/api/templates').send({ todo_id: 999, recurrence_type: 'daily' })
+    expect(res.status).toBe(400)
+  })
+
+  it('returns 400 when todo has no due_date', async () => {
+    const todo = await request.post('/api/todos').send({ text: 'no date' })
+    const res = await request.post('/api/templates').send({ todo_id: todo.body.id, recurrence_type: 'daily' })
+    expect(res.status).toBe(400)
+  })
+
+  it('returns 400 for weekly with day_mask = 0', async () => {
+    const todoId = await makeTodoWithDue('2026-04-28')
+    const res = await request.post('/api/templates').send({
+      todo_id: todoId, recurrence_type: 'weekly', day_mask: 0,
+    })
+    expect(res.status).toBe(400)
+  })
+
+  it('returns 400 for custom with interval_days < 1', async () => {
+    const todoId = await makeTodoWithDue('2026-04-28')
+    const res = await request.post('/api/templates').send({
+      todo_id: todoId, recurrence_type: 'custom', interval_days: 0,
+    })
+    expect(res.status).toBe(400)
+  })
+
+  it('GET /api/templates returns created template', async () => {
+    const todoId = await makeTodoWithDue('2026-04-28')
+    await request.post('/api/templates').send({ todo_id: todoId, recurrence_type: 'daily' })
+    const res = await request.get('/api/templates')
+    expect(res.body).toHaveLength(1)
+    expect(res.body[0].recurrence_type).toBe('daily')
+  })
+})
