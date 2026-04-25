@@ -657,3 +657,149 @@ h1 {
   margin-left: 4px;
   white-space: nowrap;
 }
+
+.recurrence-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  font-size: 13px;
+  flex-wrap: wrap;
+}
+
+.recurrence-row.disabled {
+  opacity: 0.5;
+}
+
+.recurrence-row-label {
+  color: var(--text);
+  min-width: 72px;
+  flex-shrink: 0;
+}
+
+.recurrence-hint {
+  color: var(--text);
+  font-size: 12px;
+}
+
+.recurrence-current {
+  color: var(--accent);
+  font-size: 13px;
+}
+
+.recurrence-remove {
+  background: none;
+  border: none;
+  color: var(--text);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  opacity: 0.6;
+
+  &:hover {
+    opacity: 1;
+    background: var(--border);
+  }
+}
+
+.recurrence-picker {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.rec-type-tabs {
+  display: flex;
+  gap: 3px;
+}
+
+.rec-tab {
+  padding: 2px 9px;
+  font-size: 12px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--text);
+  cursor: pointer;
+  font-family: var(--sans);
+
+  &.active {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+  }
+
+  &:hover:not(.active) {
+    background: var(--accent-bg);
+  }
+}
+
+.rec-days {
+  display: flex;
+  gap: 3px;
+}
+
+.rec-day {
+  width: 28px;
+  height: 28px;
+  font-size: 11px;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--bg);
+  color: var(--text);
+  cursor: pointer;
+  font-family: var(--sans);
+  padding: 0;
+
+  &.active {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+  }
+
+  &:hover:not(.active) {
+    background: var(--accent-bg);
+  }
+}
+
+.rec-custom {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.rec-interval {
+  width: 50px;
+  padding: 2px 6px;
+  font-size: 13px;
+  text-align: center;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--text-h);
+  font-family: var(--sans);
+}
+
+.rec-set-btn {
+  padding: 3px 12px;
+  font-size: 12px;
+  border: none;
+  border-radius: 4px;
+  background: var(--accent);
+  color: #fff;
+  cursor: pointer;
+  font-family: var(--sans);
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  &:hover:not(:disabled) {
+    opacity: 0.85;
+  }
+}
