@@ -7,9 +7,10 @@ import { toDate, toDateStr, formatDisplay, isOverdue } from '../utils/dates'
 interface Props {
   dueDate: string | null
   onChange: (date: string | null) => void
+  recurrenceLabel?: string
 }
 
-export function DueDateChip({ dueDate, onChange }: Props) {
+export function DueDateChip({ dueDate, onChange, recurrenceLabel }: Props) {
   const [open, setOpen] = useState(false)
   const [pos, setPos] = useState({ top: 0, left: 0 })
   const wrapRef = useRef<HTMLDivElement>(null)
@@ -63,6 +64,9 @@ export function DueDateChip({ dueDate, onChange }: Props) {
         >
           ✕
         </button>
+      )}
+      {dueDate && recurrenceLabel && (
+        <span className="recurrence-badge">{recurrenceLabel}</span>
       )}
       {open && createPortal(
         <div
