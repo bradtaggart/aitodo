@@ -16,6 +16,18 @@ afterEach(() => {
   db.close()
 })
 
+describe('schema', () => {
+  it('has recurring_templates table', () => {
+    const tables = db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all() as { name: string }[]
+    expect(tables.map(t => t.name)).toContain('recurring_templates')
+  })
+
+  it('todos table has template_id column', () => {
+    const cols = (db.prepare('PRAGMA table_info(todos)').all() as { name: string }[]).map(c => c.name)
+    expect(cols).toContain('template_id')
+  })
+})
+
 describe('GET /api/todos', () => {
   it('returns empty array when no todos exist', async () => {
     const res = await request.get('/api/todos')

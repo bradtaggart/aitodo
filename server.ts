@@ -14,12 +14,24 @@ interface TodoRow {
   category_id: number | null
   due_date: string | null
   description: string | null
+  template_id: number | null
 }
 
 interface CategoryRow {
   id: number
   name: string
   color: string
+}
+
+interface TemplateRow {
+  id: number
+  text: string
+  category_id: number | null
+  description: string | null
+  recurrence_type: string
+  day_mask: number | null
+  interval_days: number | null
+  day_of_month: number | null
 }
 
 export function initDb(db: Database.Database) {
@@ -55,6 +67,23 @@ export function initDb(db: Database.Database) {
   if (!todoCols.includes('category_id')) db.exec('ALTER TABLE todos ADD COLUMN category_id INTEGER REFERENCES categories(id)')
   if (!todoCols.includes('due_date')) db.exec('ALTER TABLE todos ADD COLUMN due_date TEXT')
   if (!todoCols.includes('description')) db.exec('ALTER TABLE todos ADD COLUMN description TEXT')
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS recurring_templates (
+      id              INTEGER PRIMARY KEY AUTOINCREMENT,
+      text            TEXT NOT NULL,
+      category_id     INTEGER REFERENCES categories(id),
+      description     TEXT,
+      recurrence_type TEXT NOT NULL,
+      day_mask        INTEGER,
+      interval_days   INTEGER,
+      day_of_month    INTEGER
+    )
+  `)
+
+  if (!todoCols.includes('template_id')) {
+    db.exec('ALTER TABLE todos ADD COLUMN template_id INTEGER REFERENCES recurring_templates(id)')
+  }
 }
 
 export function createApp(db: Database.Database) {

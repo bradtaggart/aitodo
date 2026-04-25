@@ -1,3 +1,16 @@
+export type RecurrenceType = 'daily' | 'weekly' | 'monthly' | 'custom'
+
+export interface RecurringTemplate {
+  id: number
+  text: string
+  category_id: number | null
+  description: string | null
+  recurrence_type: RecurrenceType
+  day_mask: number | null
+  interval_days: number | null
+  day_of_month: number | null
+}
+
 export interface Todo {
   id: number
   text: string
@@ -8,6 +21,7 @@ export interface Todo {
   category_id: number | null
   due_date: string | null
   description: string | null
+  template_id: number | null
 }
 
 export interface Category {
