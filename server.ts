@@ -135,6 +135,7 @@ export function createApp(db: Database.Database) {
     getTemplateById:    db.prepare<[number], TemplateRow>('SELECT * FROM recurring_templates WHERE id = ?'),
     insertTemplate:     db.prepare<[string, number | null, string | null, string, number | null, number | null, number | null], Database.RunResult>(
                           'INSERT INTO recurring_templates (text, category_id, description, recurrence_type, day_mask, interval_days, day_of_month) VALUES (?, ?, ?, ?, ?, ?, ?)'),
+    deleteTemplate: db.prepare<[number], Database.RunResult>('DELETE FROM recurring_templates WHERE id = ?'),
     getTodo:            db.prepare<[number], TodoRow>('SELECT * FROM todos WHERE id = ?'),
     updateTodoTemplate: db.prepare<[number, number], Database.RunResult>('UPDATE todos SET template_id = ? WHERE id = ?'),
   }
@@ -306,6 +307,18 @@ export function createApp(db: Database.Database) {
 
       res.json(result)
     } catch (err) {
+      res.status(500).json({ error: (err as Error).message })
+    }
+  })
+
+  app.delete('/api/templates/:id', (req: Request, res: Response) => {
+    try {
+      db.pragma('foreign_keys = OFF')
+      stmts.deleteTemplate.run(Number(req.params.id))
+      db.pragma('foreign_keys = ON')
+      res.json({ ok: true })
+    } catch (err) {
+      db.pragma('foreign_keys = ON')
       res.status(500).json({ error: (err as Error).message })
     }
   })

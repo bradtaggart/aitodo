@@ -413,3 +413,37 @@ describe('POST /api/templates', () => {
     expect(res.body[0].recurrence_type).toBe('daily')
   })
 })
+
+describe('DELETE /api/templates/:id', () => {
+  async function makeRecurringTodo() {
+    const todo = await request.post('/api/todos').send({ text: 'standup' })
+    await request.patch(`/api/todos/${todo.body.id}`).send({ due_date: '2026-04-28' })
+    const tpl = await request.post('/api/templates').send({
+      todo_id: todo.body.id, recurrence_type: 'daily',
+    })
+    return { todoId: todo.body.id as number, templateId: tpl.body.template.id as number }
+  }
+
+  it('deletes a template', async () => {
+    const { templateId } = await makeRecurringTodo()
+    const res = await request.delete(`/api/templates/${templateId}`)
+    expect(res.status).toBe(200)
+    expect(res.body.ok).toBe(true)
+    const templates = await request.get('/api/templates')
+    expect(templates.body).toHaveLength(0)
+  })
+
+  it('existing todos retain template_id as tombstone after delete', async () => {
+    const { todoId, templateId } = await makeRecurringTodo()
+    await request.delete(`/api/templates/${templateId}`)
+    const todos = await request.get('/api/todos')
+    const todo = todos.body.find((t: { id: number }) => t.id === todoId)
+    expect(todo.template_id).toBe(templateId)
+  })
+
+  it('returns ok for non-existent id', async () => {
+    const res = await request.delete('/api/templates/999')
+    expect(res.status).toBe(200)
+    expect(res.body.ok).toBe(true)
+  })
+})
