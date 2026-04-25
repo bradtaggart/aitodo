@@ -138,6 +138,8 @@ export function createApp(db: Database.Database) {
     deleteTemplate: db.prepare<[number], Database.RunResult>('DELETE FROM recurring_templates WHERE id = ?'),
     getTodo:            db.prepare<[number], TodoRow>('SELECT * FROM todos WHERE id = ?'),
     updateTodoTemplate: db.prepare<[number, number], Database.RunResult>('UPDATE todos SET template_id = ? WHERE id = ?'),
+    spawnTodo: db.prepare<[string, number | null, string | null, string, string, number], Database.RunResult>(
+                 'INSERT INTO todos (text, category_id, description, created_at, due_date, template_id) VALUES (?, ?, ?, ?, ?, ?)'),
   }
 
   const app = express()
@@ -184,6 +186,7 @@ export function createApp(db: Database.Database) {
         due_date?: string | null
         description?: string | null
       }
+      let spawned: TodoRow | null = null
       if (done !== undefined) {
         const completed_at = done ? new Date().toISOString() : null
         function updateTree(id: number) {
@@ -193,6 +196,22 @@ export function createApp(db: Database.Database) {
           }
         }
         db.transaction(updateTree)(Number(req.params.id))
+
+        if (done) {
+          const todo = stmts.getTodo.get(Number(req.params.id))
+          if (todo?.template_id && todo.due_date) {
+            const template = stmts.getTemplateById.get(todo.template_id)
+            if (template) {
+              const nextDue = nextOccurrence(template, todo.due_date)
+              const created_at = new Date().toISOString()
+              const spawnResult = stmts.spawnTodo.run(
+                template.text, template.category_id, template.description,
+                created_at, nextDue, template.id
+              )
+              spawned = stmts.getTodo.get(Number(spawnResult.lastInsertRowid)) ?? null
+            }
+          }
+        }
       }
       if ('category_id' in req.body) {
         stmts.updateCat.run(category_id ?? null, Number(req.params.id))
@@ -206,7 +225,7 @@ export function createApp(db: Database.Database) {
       if ('description' in req.body) {
         stmts.updateDescription.run(description ?? null, Number(req.params.id))
       }
-      res.json({ ok: true })
+      res.json({ ok: true, spawned })
     } catch (err) {
       res.status(500).json({ error: (err as Error).message })
     }

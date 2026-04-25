@@ -414,6 +414,66 @@ describe('POST /api/templates', () => {
   })
 })
 
+describe('PATCH /api/todos/:id — recurring spawn', () => {
+  async function makeRecurring(opts: { due_date: string; recurrence_type: string; day_mask?: number; interval_days?: number }) {
+    const todo = await request.post('/api/todos').send({ text: 'standup' })
+    await request.patch(`/api/todos/${todo.body.id}`).send({ due_date: opts.due_date })
+    const tpl = await request.post('/api/templates').send({ todo_id: todo.body.id, ...opts })
+    return { todoId: todo.body.id as number, templateId: tpl.body.template.id as number }
+  }
+
+  it('spawns next daily instance on completion', async () => {
+    const { todoId } = await makeRecurring({ due_date: '2026-04-28', recurrence_type: 'daily' })
+    const res = await request.patch(`/api/todos/${todoId}`).send({ done: true })
+    expect(res.body.spawned).not.toBeNull()
+    expect(res.body.spawned.due_date).toBe('2026-04-29')
+    expect(res.body.spawned.done).toBe(0)
+    expect(res.body.spawned.text).toBe('standup')
+  })
+
+  it('spawns next weekly instance — advances to correct weekday', async () => {
+    // 2026-04-28 is a Tuesday; day_mask 2 = Mon only (bit 1)
+    // next Monday after Tuesday 2026-04-28 is 2026-05-04
+    const { todoId } = await makeRecurring({ due_date: '2026-04-28', recurrence_type: 'weekly', day_mask: 2 })
+    const res = await request.patch(`/api/todos/${todoId}`).send({ done: true })
+    expect(res.body.spawned.due_date).toBe('2026-05-04')
+  })
+
+  it('spawns next monthly instance — same day next month', async () => {
+    const { todoId } = await makeRecurring({ due_date: '2026-04-15', recurrence_type: 'monthly' })
+    const res = await request.patch(`/api/todos/${todoId}`).send({ done: true })
+    expect(res.body.spawned.due_date).toBe('2026-05-15')
+  })
+
+  it('spawns next custom instance — adds interval_days', async () => {
+    const { todoId } = await makeRecurring({ due_date: '2026-04-28', recurrence_type: 'custom', interval_days: 14 })
+    const res = await request.patch(`/api/todos/${todoId}`).send({ done: true })
+    expect(res.body.spawned.due_date).toBe('2026-05-12')
+  })
+
+  it('returns spawned: null for non-recurring todo', async () => {
+    const todo = await request.post('/api/todos').send({ text: 'one-off' })
+    const res = await request.patch(`/api/todos/${todo.body.id}`).send({ done: true })
+    expect(res.body.ok).toBe(true)
+    expect(res.body.spawned).toBeNull()
+  })
+
+  it('does not spawn when un-checking a recurring todo', async () => {
+    const { todoId } = await makeRecurring({ due_date: '2026-04-28', recurrence_type: 'daily' })
+    await request.patch(`/api/todos/${todoId}`).send({ done: true })
+    const countBefore = (await request.get('/api/todos')).body.length
+    await request.patch(`/api/todos/${todoId}`).send({ done: false })
+    const countAfter = (await request.get('/api/todos')).body.length
+    expect(countAfter).toBe(countBefore)
+  })
+
+  it('spawned instance has same template_id', async () => {
+    const { todoId, templateId } = await makeRecurring({ due_date: '2026-04-28', recurrence_type: 'daily' })
+    const res = await request.patch(`/api/todos/${todoId}`).send({ done: true })
+    expect(res.body.spawned.template_id).toBe(templateId)
+  })
+})
+
 describe('DELETE /api/templates/:id', () => {
   async function makeRecurringTodo() {
     const todo = await request.post('/api/todos').send({ text: 'standup' })
