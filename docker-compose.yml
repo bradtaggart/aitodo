@@ -2,6 +2,8 @@ services:
   tailscale:
     image: tailscale/tailscale
     hostname: aitodo
+    env_file:
+      - .env.local
     environment:
       - TS_AUTHKEY=${TS_AUTHKEY}
       - TS_STATE_DIR=/var/lib/tailscale
