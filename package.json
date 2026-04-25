@@ -10,7 +10,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run",
-    "version": "node -e \"require('fs').writeFileSync('.env','APP_VERSION='+process.env.npm_package_version+'\\n')\" && git add .env"
+    "version": "node scripts/sync-version.cjs && git add .env"
   },
   "dependencies": {
     "better-sqlite3": "^12.9.0",
