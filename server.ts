@@ -189,29 +189,33 @@ export function createApp(db: Database.Database) {
       let spawned: TodoRow | null = null
       if (done !== undefined) {
         const completed_at = done ? new Date().toISOString() : null
-        function updateTree(id: number) {
-          stmts.update.run(done ? 1 : 0, completed_at, id)
-          if (done) {
-            for (const child of stmts.getChildren.all(id)) updateTree(child.id)
-          }
-        }
-        db.transaction(updateTree)(Number(req.params.id))
 
-        if (done) {
-          const todo = stmts.getTodo.get(Number(req.params.id))
-          if (todo?.template_id && todo.due_date) {
-            const template = stmts.getTemplateById.get(todo.template_id)
-            if (template) {
-              const nextDue = nextOccurrence(template, todo.due_date)
-              const created_at = new Date().toISOString()
-              const spawnResult = stmts.spawnTodo.run(
-                template.text, template.category_id, template.description,
-                created_at, nextDue, template.id
-              )
-              spawned = stmts.getTodo.get(Number(spawnResult.lastInsertRowid)) ?? null
+        spawned = db.transaction((id: number) => {
+          function updateTree(nodeId: number) {
+            stmts.update.run(done ? 1 : 0, completed_at, nodeId)
+            if (done) {
+              for (const child of stmts.getChildren.all(nodeId)) updateTree(child.id)
             }
           }
-        }
+          updateTree(id)
+
+          if (done) {
+            const todo = stmts.getTodo.get(id)
+            if (todo?.template_id && todo.due_date) {
+              const template = stmts.getTemplateById.get(todo.template_id)
+              if (template) {
+                const nextDue = nextOccurrence(template, todo.due_date)
+                const created_at = new Date().toISOString()
+                const spawnResult = stmts.spawnTodo.run(
+                  template.text, template.category_id, template.description,
+                  created_at, nextDue, template.id
+                )
+                return stmts.getTodo.get(Number(spawnResult.lastInsertRowid)) ?? null
+              }
+            }
+          }
+          return null
+        })(Number(req.params.id))
       }
       if ('category_id' in req.body) {
         stmts.updateCat.run(category_id ?? null, Number(req.params.id))
@@ -225,7 +229,7 @@ export function createApp(db: Database.Database) {
       if ('description' in req.body) {
         stmts.updateDescription.run(description ?? null, Number(req.params.id))
       }
-      res.json({ ok: true, spawned })
+      res.json({ ok: true, spawned: spawned ? { ...spawned, done: !!spawned.done } : null })
     } catch (err) {
       res.status(500).json({ error: (err as Error).message })
     }

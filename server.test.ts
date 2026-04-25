@@ -427,7 +427,7 @@ describe('PATCH /api/todos/:id — recurring spawn', () => {
     const res = await request.patch(`/api/todos/${todoId}`).send({ done: true })
     expect(res.body.spawned).not.toBeNull()
     expect(res.body.spawned.due_date).toBe('2026-04-29')
-    expect(res.body.spawned.done).toBe(0)
+    expect(res.body.spawned.done).toBe(false)
     expect(res.body.spawned.text).toBe('standup')
   })
 
