@@ -101,7 +101,7 @@ function nextOccurrence(template: TemplateRow, currentDue: string): string {
           return candidate.toISOString().slice(0, 10)
         }
       }
-      break
+      throw new Error('weekly template has no valid day in mask')
     }
     case 'monthly': {
       d.setUTCMonth(d.getUTCMonth() + 1)
