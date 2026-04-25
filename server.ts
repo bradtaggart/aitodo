@@ -313,6 +313,9 @@ export function createApp(db: Database.Database) {
 
   app.delete('/api/templates/:id', (req: Request, res: Response) => {
     try {
+      // Temporarily disable FK enforcement so existing todos keep their
+      // template_id as a tombstone rather than being blocked by the constraint.
+      // Safe: better-sqlite3 is synchronous so no other handler can interleave.
       db.pragma('foreign_keys = OFF')
       stmts.deleteTemplate.run(Number(req.params.id))
       db.pragma('foreign_keys = ON')
