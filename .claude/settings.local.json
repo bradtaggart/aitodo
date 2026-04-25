@@ -5,7 +5,14 @@
       "Bash(npm run *)",
       "Bash(git add *)",
       "Bash(git commit -m ' *)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Bash(node -e \"require\\('fs'\\).writeFileSync\\('/tmp/fromproject','OK\\\\n'\\)\")",
+      "Read(//tmp/**)",
+      "Bash(git *)",
+      "Bash(node *)",
+      "Bash(npm_package_version=test123 node scripts/sync-version.cjs)",
+      "Bash(npm_package_version=0.1.1 node scripts/sync-version.cjs)",
+      "Bash(npm test *)"
     ]
   }
 }
