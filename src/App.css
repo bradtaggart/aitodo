@@ -629,3 +629,14 @@ h1 {
   color: var(--text);
   margin-top: 4px;
 }
+
+.app-version {
+  position: fixed;
+  bottom: 12px;
+  left: 12px;
+  font-size: 11px;
+  color: var(--text);
+  opacity: 0.5;
+  font-family: var(--sans);
+  pointer-events: none;
+}

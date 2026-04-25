@@ -78,7 +78,7 @@ export default function App() {
         onToggle={() => setCalendarOpen(v => !v)}
       />
       <main className="main-panel">
-        <h1>What's Next</h1>
+        <h1>What's Next...</h1>
         {error && (
           <p className="error">
             {error}
@@ -137,6 +137,7 @@ export default function App() {
           ))}
         </ul>
       </main>
+      <span className="app-version">v{__APP_VERSION__}</span>
     </div>
   )
 }
