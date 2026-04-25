@@ -1,24 +1,30 @@
 import { useState } from 'react'
-import type { Todo, Category } from '../types'
+import type { Todo, Category, RecurringTemplate } from '../types'
+import type { SetRecurrenceConfig } from '../api'
 import { DueDateChip } from './DueDateChip'
 import { DescriptionField } from './DescriptionField'
+import { RecurrencePicker } from './RecurrencePicker'
+import { recurrenceLabel } from '../utils/recurrence'
 
 interface Props {
   todo: Todo
   subtasks: Todo[]
   categories: Category[]
+  templates: RecurringTemplate[]
   onToggle: (id: number, done: boolean) => void
   onDelete: (id: number) => void
   onAddChild: (text: string, parent_id: number) => void
   onChangeCategory: (id: number, category_id: number | null) => void
   onChangeDueDate: (id: number, due_date: string | null) => void
   onChangeDescription: (id: number, description: string | null) => void
+  onSetRecurrence: (todoId: number, config: SetRecurrenceConfig) => Promise<void>
+  onRemoveRecurrence: (templateId: number) => Promise<void>
   subtasksOf: (id: number) => Todo[]
   showDueDateChip: boolean
   forceExpanded?: boolean
 }
 
-export function TodoItem({ todo, subtasks, categories, onToggle, onDelete, onAddChild, onChangeCategory, onChangeDueDate, onChangeDescription, subtasksOf, showDueDateChip, forceExpanded = false }: Props) {
+export function TodoItem({ todo, subtasks, categories, templates, onToggle, onDelete, onAddChild, onChangeCategory, onChangeDueDate, onChangeDescription, onSetRecurrence, onRemoveRecurrence, subtasksOf, showDueDateChip, forceExpanded = false }: Props) {
   const [adding, setAdding] = useState(false)
   const [collapsed, setCollapsed] = useState(
     () => localStorage.getItem(`collapsed:${todo.id}`) === 'true'
@@ -26,6 +32,8 @@ export function TodoItem({ todo, subtasks, categories, onToggle, onDelete, onAdd
   const [input, setInput] = useState('')
 
   const cat = categories.find(c => c.id === todo.category_id) ?? null
+  const template = templates.find(t => t.id === todo.template_id) ?? null
+  const recLabel = template ? recurrenceLabel(template) : undefined
   const isExpanded = forceExpanded || !collapsed
 
   async function handleAddChild(e: React.SubmitEvent<HTMLFormElement>) {
@@ -68,6 +76,7 @@ export function TodoItem({ todo, subtasks, categories, onToggle, onDelete, onAdd
           <DueDateChip
             dueDate={todo.due_date}
             onChange={due_date => onChangeDueDate(todo.id, due_date)}
+            recurrenceLabel={recLabel}
           />
         )}
         {categories.length > 0 && (
@@ -98,6 +107,14 @@ export function TodoItem({ todo, subtasks, categories, onToggle, onDelete, onAdd
         value={todo.description}
         onChange={description => onChangeDescription(todo.id, description)}
       />
+      {todo.parent_id === null && (
+        <RecurrencePicker
+          dueDate={todo.due_date}
+          template={template}
+          onSet={config => onSetRecurrence(todo.id, config)}
+          onRemove={() => template && onRemoveRecurrence(template.id)}
+        />
+      )}
       {adding && (
         <form onSubmit={handleAddChild} className="child-form">
           <input
@@ -119,12 +136,15 @@ export function TodoItem({ todo, subtasks, categories, onToggle, onDelete, onAdd
               todo={child}
               subtasks={subtasksOf(child.id)}
               categories={categories}
+              templates={templates}
               onToggle={onToggle}
               onDelete={onDelete}
               onAddChild={onAddChild}
               onChangeCategory={onChangeCategory}
               onChangeDueDate={onChangeDueDate}
               onChangeDescription={onChangeDescription}
+              onSetRecurrence={onSetRecurrence}
+              onRemoveRecurrence={onRemoveRecurrence}
               subtasksOf={subtasksOf}
               showDueDateChip={false}
               forceExpanded={forceExpanded}
