@@ -25,3 +25,4 @@ dist-ssr
 todos.db
 .env.local
 .superpowers/
+.worktrees/
