@@ -1,7 +1,7 @@
 {
   "name": "aitodo",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.1.0",
   "type": "module",
   "scripts": {
     "dev": "concurrently \"tsx server.ts\" \"vite\"",
@@ -9,7 +9,8 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test": "vitest run"
+    "test": "vitest run",
+    "version": "node -e \"require('fs').writeFileSync('.env','APP_VERSION='+process.env.npm_package_version+'\\n')\" && git add .env"
   },
   "dependencies": {
     "better-sqlite3": "^12.9.0",
