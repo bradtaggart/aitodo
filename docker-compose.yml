@@ -18,6 +18,7 @@ services:
 
   app:
     build: .
+    image: aitodo:${APP_VERSION:-latest}
     network_mode: "service:tailscale"
     depends_on:
       - tailscale
