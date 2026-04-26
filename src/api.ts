@@ -1,4 +1,4 @@
-import type { Todo, Category } from './types'
+import type { Todo, Category, RecurringTemplate, RecurrenceType } from './types'
 
 async function request<T>(url: string, options?: RequestInit): Promise<T> {
   const res = await fetch(url, options)
@@ -23,7 +23,7 @@ export const createTodo = (text: string, category_id: number | null = null, pare
   })
 
 export const patchTodo = (id: number, patch: Partial<Pick<Todo, 'done' | 'category_id' | 'due_date' | 'description'>>) =>
-  request<{ ok: true }>(`/api/todos/${id}`, {
+  request<{ ok: true; spawned: Todo | null }>(`/api/todos/${id}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(patch),
@@ -41,3 +41,22 @@ export const createCategory = (name: string, color: string) =>
 
 export const eraseCategory = (id: number) =>
   request<{ ok: true }>(`/api/categories/${id}`, { method: 'DELETE' })
+
+export type SetRecurrenceConfig = {
+  recurrence_type: RecurrenceType
+  day_mask?: number
+  interval_days?: number
+}
+
+export const fetchTemplates = () =>
+  request<RecurringTemplate[]>('/api/templates')
+
+export const createTemplate = (todo_id: number, config: SetRecurrenceConfig) =>
+  request<{ template: RecurringTemplate; todo: Todo }>('/api/templates', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ todo_id, ...config }),
+  })
+
+export const eraseTemplate = (id: number) =>
+  request<{ ok: true }>(`/api/templates/${id}`, { method: 'DELETE' })

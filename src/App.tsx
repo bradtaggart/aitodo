@@ -4,6 +4,8 @@ import { TodoItem } from './components/TodoItem'
 import { CalendarPanel } from './components/CalendarPanel'
 import { useTodos } from './hooks/useTodos'
 import { useCategories } from './hooks/useCategories'
+import { useTemplates } from './hooks/useTemplates'
+import type { SetRecurrenceConfig } from './api'
 import { toDateStr } from './utils/dates'
 import './App.css'
 
@@ -37,8 +39,16 @@ export default function App() {
     deleteCategory: deleteCategoryBase,
   } = useCategories()
 
-  const error = todoError ?? catError
-  const clearError = () => { clearTodoError(); clearCatError() }
+  const {
+    templates,
+    error: templateError,
+    clearError: clearTemplateError,
+    createTemplate,
+    deleteTemplate,
+  } = useTemplates()
+
+  const error = todoError ?? catError ?? templateError
+  const clearError = () => { clearTodoError(); clearCatError(); clearTemplateError() }
 
   async function handleAddTodo(e: React.SubmitEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -57,6 +67,16 @@ export default function App() {
     await deleteCategoryBase(id)
     await loadTodos()
     if (activeCat === id) setActiveCat(null)
+  }
+
+  async function handleSetRecurrence(todoId: number, config: SetRecurrenceConfig) {
+    await createTemplate(todoId, config)
+    await loadTodos()
+  }
+
+  async function handleRemoveRecurrence(templateId: number) {
+    await deleteTemplate(templateId)
+    await loadTodos()
   }
 
   const topLevel = todos.filter(t => {
@@ -124,12 +144,15 @@ export default function App() {
               todo={todo}
               subtasks={subtasksOf(todo.id)}
               categories={categories}
+              templates={templates}
               onToggle={toggleTodo}
               onDelete={handleDeleteTodo}
               onAddChild={addChild}
               onChangeCategory={changeCategory}
               onChangeDueDate={changeDueDate}
               onChangeDescription={changeDescription}
+              onSetRecurrence={handleSetRecurrence}
+              onRemoveRecurrence={handleRemoveRecurrence}
               subtasksOf={subtasksOf}
               showDueDateChip={selectedDate === null}
               forceExpanded={selectedDate !== null}

@@ -14,12 +14,24 @@ interface TodoRow {
   category_id: number | null
   due_date: string | null
   description: string | null
+  template_id: number | null
 }
 
 interface CategoryRow {
   id: number
   name: string
   color: string
+}
+
+interface TemplateRow {
+  id: number
+  text: string
+  category_id: number | null
+  description: string | null
+  recurrence_type: string
+  day_mask: number | null
+  interval_days: number | null
+  day_of_month: number | null
 }
 
 export function initDb(db: Database.Database) {
@@ -55,6 +67,52 @@ export function initDb(db: Database.Database) {
   if (!todoCols.includes('category_id')) db.exec('ALTER TABLE todos ADD COLUMN category_id INTEGER REFERENCES categories(id)')
   if (!todoCols.includes('due_date')) db.exec('ALTER TABLE todos ADD COLUMN due_date TEXT')
   if (!todoCols.includes('description')) db.exec('ALTER TABLE todos ADD COLUMN description TEXT')
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS recurring_templates (
+      id              INTEGER PRIMARY KEY AUTOINCREMENT,
+      text            TEXT NOT NULL,
+      category_id     INTEGER REFERENCES categories(id),
+      description     TEXT,
+      recurrence_type TEXT NOT NULL,
+      day_mask        INTEGER,
+      interval_days   INTEGER,
+      day_of_month    INTEGER
+    )
+  `)
+
+  if (!todoCols.includes('template_id')) {
+    db.exec('ALTER TABLE todos ADD COLUMN template_id INTEGER REFERENCES recurring_templates(id)')
+  }
+}
+
+function nextOccurrence(template: TemplateRow, currentDue: string): string {
+  const d = new Date(currentDue + 'T12:00:00Z')
+  switch (template.recurrence_type) {
+    case 'daily':
+      d.setUTCDate(d.getUTCDate() + 1)
+      break
+    case 'weekly': {
+      const mask = template.day_mask!
+      for (let i = 1; i <= 7; i++) {
+        const candidate = new Date(d)
+        candidate.setUTCDate(d.getUTCDate() + i)
+        if (mask & (1 << candidate.getUTCDay())) {
+          return candidate.toISOString().slice(0, 10)
+        }
+      }
+      throw new Error('weekly template has no valid day in mask')
+    }
+    case 'monthly': {
+      d.setUTCMonth(d.getUTCMonth() + 1)
+      d.setUTCDate(template.day_of_month!)
+      break
+    }
+    case 'custom':
+      d.setUTCDate(d.getUTCDate() + template.interval_days!)
+      break
+  }
+  return d.toISOString().slice(0, 10)
 }
 
 export function createApp(db: Database.Database) {
@@ -73,6 +131,15 @@ export function createApp(db: Database.Database) {
     clearTodoCat: db.prepare<[number], Database.RunResult>('UPDATE todos SET category_id = NULL WHERE category_id = ?'),
     updateDueDate: db.prepare<[string | null, number], Database.RunResult>('UPDATE todos SET due_date = ? WHERE id = ?'),
     updateDescription: db.prepare<[string | null, number], Database.RunResult>('UPDATE todos SET description = ? WHERE id = ?'),
+    getAllTemplates:     db.prepare<[], TemplateRow>('SELECT * FROM recurring_templates ORDER BY id'),
+    getTemplateById:    db.prepare<[number], TemplateRow>('SELECT * FROM recurring_templates WHERE id = ?'),
+    insertTemplate:     db.prepare<[string, number | null, string | null, string, number | null, number | null, number | null], Database.RunResult>(
+                          'INSERT INTO recurring_templates (text, category_id, description, recurrence_type, day_mask, interval_days, day_of_month) VALUES (?, ?, ?, ?, ?, ?, ?)'),
+    deleteTemplate: db.prepare<[number], Database.RunResult>('DELETE FROM recurring_templates WHERE id = ?'),
+    getTodo:            db.prepare<[number], TodoRow>('SELECT * FROM todos WHERE id = ?'),
+    updateTodoTemplate: db.prepare<[number, number], Database.RunResult>('UPDATE todos SET template_id = ? WHERE id = ?'),
+    spawnTodo: db.prepare<[string, number | null, string | null, string, string, number], Database.RunResult>(
+                 'INSERT INTO todos (text, category_id, description, created_at, due_date, template_id) VALUES (?, ?, ?, ?, ?, ?)'),
   }
 
   const app = express()
@@ -119,15 +186,36 @@ export function createApp(db: Database.Database) {
         due_date?: string | null
         description?: string | null
       }
+      let spawned: TodoRow | null = null
       if (done !== undefined) {
         const completed_at = done ? new Date().toISOString() : null
-        function updateTree(id: number) {
-          stmts.update.run(done ? 1 : 0, completed_at, id)
-          if (done) {
-            for (const child of stmts.getChildren.all(id)) updateTree(child.id)
+
+        spawned = db.transaction((id: number) => {
+          function updateTree(nodeId: number) {
+            stmts.update.run(done ? 1 : 0, completed_at, nodeId)
+            if (done) {
+              for (const child of stmts.getChildren.all(nodeId)) updateTree(child.id)
+            }
           }
-        }
-        db.transaction(updateTree)(Number(req.params.id))
+          updateTree(id)
+
+          if (done) {
+            const todo = stmts.getTodo.get(id)
+            if (todo?.template_id && todo.due_date) {
+              const template = stmts.getTemplateById.get(todo.template_id)
+              if (template) {
+                const nextDue = nextOccurrence(template, todo.due_date)
+                const created_at = new Date().toISOString()
+                const spawnResult = stmts.spawnTodo.run(
+                  template.text, template.category_id, template.description,
+                  created_at, nextDue, template.id
+                )
+                return stmts.getTodo.get(Number(spawnResult.lastInsertRowid)) ?? null
+              }
+            }
+          }
+          return null
+        })(Number(req.params.id))
       }
       if ('category_id' in req.body) {
         stmts.updateCat.run(category_id ?? null, Number(req.params.id))
@@ -141,7 +229,7 @@ export function createApp(db: Database.Database) {
       if ('description' in req.body) {
         stmts.updateDescription.run(description ?? null, Number(req.params.id))
       }
-      res.json({ ok: true })
+      res.json({ ok: true, spawned: spawned ? { ...spawned, done: !!spawned.done } : null })
     } catch (err) {
       res.status(500).json({ error: (err as Error).message })
     }
@@ -190,6 +278,73 @@ export function createApp(db: Database.Database) {
       stmts.deleteCat.run(Number(req.params.id))
       res.json({ ok: true })
     } catch (err) {
+      res.status(500).json({ error: (err as Error).message })
+    }
+  })
+
+  app.get('/api/templates', (_req: Request, res: Response) => {
+    try {
+      res.json(stmts.getAllTemplates.all())
+    } catch (err) {
+      res.status(500).json({ error: (err as Error).message })
+    }
+  })
+
+  app.post('/api/templates', (req: Request, res: Response) => {
+    try {
+      const { todo_id, recurrence_type, day_mask, interval_days } =
+        req.body as { todo_id?: number; recurrence_type?: string; day_mask?: number; interval_days?: number }
+
+      if (!todo_id) return res.status(400).json({ error: 'todo_id is required' })
+
+      const validTypes = ['daily', 'weekly', 'monthly', 'custom']
+      if (!recurrence_type || !validTypes.includes(recurrence_type)) {
+        return res.status(400).json({ error: 'recurrence_type must be daily|weekly|monthly|custom' })
+      }
+      if (recurrence_type === 'weekly' && !(day_mask && day_mask > 0)) {
+        return res.status(400).json({ error: 'day_mask required and non-zero for weekly' })
+      }
+      if (recurrence_type === 'custom' && (!interval_days || interval_days < 1)) {
+        return res.status(400).json({ error: 'interval_days required and >= 1 for custom' })
+      }
+
+      const todo = stmts.getTodo.get(Number(todo_id))
+      if (!todo) return res.status(400).json({ error: 'todo not found' })
+      if (!todo.due_date) return res.status(400).json({ error: 'todo must have a due_date' })
+
+      const dom = recurrence_type === 'monthly' ? Number(todo.due_date.slice(8, 10)) : null
+      const maskVal = recurrence_type === 'weekly' ? (day_mask ?? null) : null
+      const intervalVal = recurrence_type === 'custom' ? (interval_days ?? null) : null
+
+      const result = db.transaction(() => {
+        const tplResult = stmts.insertTemplate.run(
+          todo.text, todo.category_id, todo.description,
+          recurrence_type, maskVal, intervalVal, dom
+        )
+        const templateId = Number(tplResult.lastInsertRowid)
+        stmts.updateTodoTemplate.run(templateId, Number(todo_id))
+        const template = stmts.getTemplateById.get(templateId)!
+        const updatedTodo = stmts.getTodo.get(Number(todo_id))!
+        return { template, todo: { ...updatedTodo, done: !!updatedTodo.done } }
+      })()
+
+      res.json(result)
+    } catch (err) {
+      res.status(500).json({ error: (err as Error).message })
+    }
+  })
+
+  app.delete('/api/templates/:id', (req: Request, res: Response) => {
+    try {
+      // Temporarily disable FK enforcement so existing todos keep their
+      // template_id as a tombstone rather than being blocked by the constraint.
+      // Safe: better-sqlite3 is synchronous so no other handler can interleave.
+      db.pragma('foreign_keys = OFF')
+      stmts.deleteTemplate.run(Number(req.params.id))
+      db.pragma('foreign_keys = ON')
+      res.json({ ok: true })
+    } catch (err) {
+      db.pragma('foreign_keys = ON')
       res.status(500).json({ error: (err as Error).message })
     }
   })
