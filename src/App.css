@@ -527,6 +527,8 @@ h1 {
     width: 260px;
     padding: 60px 12px 0;
     overflow-y: auto;
+    display: flex;
+    flex-direction: column;
   }
 
   &.open .rdp-root {
@@ -631,17 +633,12 @@ h1 {
 }
 
 .app-version {
-  position: fixed;
-  bottom: 12px;
-  left: calc(var(--panel-collapsed-width) + var(--panel-gap));
+  display: block;
+  margin-top: auto;
+  padding: 16px 0 12px;
   font-size: 11px;
   color: var(--text);
   opacity: 0.5;
   font-family: var(--sans);
-  pointer-events: none;
-  transition: left 0.2s ease;
-}
-
-.app-version.panel-open {
-  left: calc(var(--panel-open-width) + var(--panel-gap));
+  text-align: center;
 }
