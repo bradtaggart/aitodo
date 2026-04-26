@@ -551,6 +551,8 @@ h1 {
   font-size: 11px;
   padding: 4px 7px;
   display: block;
+  align-self: flex-start;
+  text-align: left;
   margin-bottom: 12px;
   font-family: var(--sans);
 
@@ -640,7 +642,7 @@ h1 {
   color: var(--text);
   opacity: 0.5;
   font-family: var(--sans);
-  text-align: center;
+  text-align: left;
 }
 
 .recurrence-section {
