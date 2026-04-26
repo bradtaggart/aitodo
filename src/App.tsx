@@ -160,7 +160,6 @@ export default function App() {
           ))}
         </ul>
       </main>
-      <span className={`app-version${calendarOpen ? ' panel-open' : ''}`}>v{__APP_VERSION__}</span>
     </div>
   )
 }

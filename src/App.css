@@ -527,6 +527,8 @@ h1 {
     width: 260px;
     padding: 60px 12px 0;
     overflow-y: auto;
+    display: flex;
+    flex-direction: column;
   }
 
   &.open .rdp-root {
@@ -631,60 +633,61 @@ h1 {
 }
 
 .app-version {
-  position: fixed;
-  bottom: 12px;
-  left: calc(var(--panel-collapsed-width) + var(--panel-gap));
+  display: block;
+  margin-top: auto;
+  padding: 16px 0 12px;
   font-size: 11px;
   color: var(--text);
   opacity: 0.5;
   font-family: var(--sans);
-  pointer-events: none;
-  transition: left 0.2s ease;
+  text-align: center;
 }
 
-.app-version.panel-open {
-  left: calc(var(--panel-open-width) + var(--panel-gap));
-}
-
-.recurrence-badge {
-  display: inline-block;
-  padding: 1px 7px;
-  border-radius: 10px;
-  font-size: 11px;
-  background: var(--accent-bg);
-  color: var(--accent);
-  border: 1px solid var(--accent-border);
-  margin-left: 4px;
-  white-space: nowrap;
+.recurrence-section {
+  padding: 4px 14px 8px;
 }
 
 .recurrence-row {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 4px 0;
-  font-size: 13px;
-  flex-wrap: wrap;
 }
 
-.recurrence-row.disabled {
-  opacity: 0.5;
-}
-
-.recurrence-row-label {
+.recurrence-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  border: 1.5px dashed var(--border);
+  background: none;
   color: var(--text);
-  min-width: 72px;
-  flex-shrink: 0;
+  font-family: var(--sans);
+  white-space: nowrap;
+
+  &.active {
+    border-style: solid;
+    border-color: var(--accent-border);
+    background: var(--accent-bg);
+    color: var(--accent);
+  }
+
+  &:hover:not(:disabled) {
+    opacity: 0.8;
+  }
+
+  &:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+  }
 }
 
 .recurrence-hint {
   color: var(--text);
   font-size: 12px;
-}
-
-.recurrence-current {
-  color: var(--accent);
-  font-size: 13px;
 }
 
 .recurrence-remove {
@@ -708,6 +711,7 @@ h1 {
   align-items: center;
   gap: 6px;
   flex-wrap: wrap;
+  margin-top: 6px;
 }
 
 .rec-type-tabs {

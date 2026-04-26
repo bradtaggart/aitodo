@@ -43,6 +43,7 @@ export function CalendarPanel({ todos, selectedDate, onDateSelect, open, onToggl
           modifiersClassNames={{ hasTasks: 'day-has-tasks' }}
         />
       )}
+      {open && <span className="app-version">v{__APP_VERSION__}</span>}
     </aside>
   )
 }

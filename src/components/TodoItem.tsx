@@ -4,7 +4,6 @@ import type { SetRecurrenceConfig } from '../api'
 import { DueDateChip } from './DueDateChip'
 import { DescriptionField } from './DescriptionField'
 import { RecurrencePicker } from './RecurrencePicker'
-import { recurrenceLabel } from '../utils/recurrence'
 
 interface Props {
   todo: Todo
@@ -33,7 +32,6 @@ export function TodoItem({ todo, subtasks, categories, templates, onToggle, onDe
 
   const cat = categories.find(c => c.id === todo.category_id) ?? null
   const template = templates.find(t => t.id === todo.template_id) ?? null
-  const recLabel = template ? recurrenceLabel(template) : undefined
   const isExpanded = forceExpanded || !collapsed
 
   async function handleAddChild(e: React.SubmitEvent<HTMLFormElement>) {
@@ -76,7 +74,6 @@ export function TodoItem({ todo, subtasks, categories, templates, onToggle, onDe
           <DueDateChip
             dueDate={todo.due_date}
             onChange={due_date => onChangeDueDate(todo.id, due_date)}
-            recurrenceLabel={recLabel}
           />
         )}
         {categories.length > 0 && (
