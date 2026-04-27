@@ -1,7 +1,7 @@
 services:
   tailscale:
     image: tailscale/tailscale
-    hostname: aitodo
+    hostname: aitodo-dev
     env_file:
       - .env.local
     environment:
