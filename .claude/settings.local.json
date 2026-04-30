@@ -12,7 +12,10 @@
       "Bash(node *)",
       "Bash(npm_package_version=test123 node scripts/sync-version.cjs)",
       "Bash(npm_package_version=0.1.1 node scripts/sync-version.cjs)",
-      "Bash(npm test *)"
+      "Bash(npm test *)",
+      "Bash(pkill -f \"tsx server.ts\")",
+      "Bash(pkill -f \"concurrently\")",
+      "mcp__Claude_Preview__preview_start"
     ]
   }
 }

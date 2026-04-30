@@ -14,6 +14,7 @@ export default function App() {
   const [activeCat, setActiveCat] = useState<number | null>(null)
   const [selectedDate, setSelectedDate] = useState<Date | null>(null)
   const [calendarOpen, setCalendarOpen] = useState(true)
+  const [sortByPriority, setSortByPriority] = useState(false)
 
   const {
     todos,
@@ -29,6 +30,7 @@ export default function App() {
     changeCategory,
     changeDueDate,
     changeDescription,
+    changePriority,
   } = useTodos()
 
   const {
@@ -79,12 +81,23 @@ export default function App() {
     await loadTodos()
   }
 
-  const topLevel = todos.filter(t => {
-    if (t.parent_id) return false
-    if (activeCat !== null && t.category_id !== activeCat) return false
-    if (selectedDate !== null && t.due_date !== toDateStr(selectedDate)) return false
-    return true
-  })
+  const PRIORITY_ORDER = { high: 0, medium: 1, low: 2 }
+
+  const topLevel = todos
+    .filter(t => {
+      if (t.parent_id) return false
+      if (activeCat !== null && t.category_id !== activeCat) return false
+      if (selectedDate !== null && t.due_date !== toDateStr(selectedDate)) return false
+      return true
+    })
+    .sort((a, b) => {
+      if (sortByPriority) {
+        const pa = a.priority ? PRIORITY_ORDER[a.priority] : 3
+        const pb = b.priority ? PRIORITY_ORDER[b.priority] : 3
+        return pa - pb
+      }
+      return b.id - a.id
+    })
 
   const activeCatObj = categories.find(c => c.id === activeCat) ?? null
 
@@ -114,6 +127,14 @@ export default function App() {
             disabled={pending}
           />
           <button type="submit" disabled={pending}>Add</button>
+          <button
+            type="button"
+            className={`sort-priority-btn${sortByPriority ? ' active' : ''}`}
+            onClick={() => setSortByPriority(v => !v)}
+            title="Sort by priority"
+          >
+            🚩 Sort
+          </button>
         </form>
         <CategoryBar
           categories={categories}
@@ -151,6 +172,7 @@ export default function App() {
               onChangeCategory={changeCategory}
               onChangeDueDate={changeDueDate}
               onChangeDescription={changeDescription}
+              onChangePriority={changePriority}
               onSetRecurrence={handleSetRecurrence}
               onRemoveRecurrence={handleRemoveRecurrence}
               subtasksOf={subtasksOf}

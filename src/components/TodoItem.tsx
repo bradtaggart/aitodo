@@ -16,6 +16,7 @@ interface Props {
   onChangeCategory: (id: number, category_id: number | null) => void
   onChangeDueDate: (id: number, due_date: string | null) => void
   onChangeDescription: (id: number, description: string | null) => void
+  onChangePriority: (id: number, priority: 'high' | 'medium' | 'low' | null) => void
   onSetRecurrence: (todoId: number, config: SetRecurrenceConfig) => Promise<void>
   onRemoveRecurrence: (templateId: number) => Promise<void>
   subtasksOf: (id: number) => Todo[]
@@ -23,12 +24,18 @@ interface Props {
   forceExpanded?: boolean
 }
 
-export function TodoItem({ todo, subtasks, categories, templates, onToggle, onDelete, onAddChild, onChangeCategory, onChangeDueDate, onChangeDescription, onSetRecurrence, onRemoveRecurrence, subtasksOf, showDueDateChip, forceExpanded = false }: Props) {
+export function TodoItem({ todo, subtasks, categories, templates, onToggle, onDelete, onAddChild, onChangeCategory, onChangeDueDate, onChangeDescription, onChangePriority, onSetRecurrence, onRemoveRecurrence, subtasksOf, showDueDateChip, forceExpanded = false }: Props) {
   const [adding, setAdding] = useState(false)
   const [collapsed, setCollapsed] = useState(
     () => localStorage.getItem(`collapsed:${todo.id}`) === 'true'
   )
   const [input, setInput] = useState('')
+
+  const CYCLE: Record<string, 'high' | 'medium' | 'low' | null> = { high: 'medium', medium: 'low', low: null }
+  function cyclePriority() {
+    const next = todo.priority ? CYCLE[todo.priority] : 'high'
+    onChangePriority(todo.id, next)
+  }
 
   const cat = categories.find(c => c.id === todo.category_id) ?? null
   const template = templates.find(t => t.id === todo.template_id) ?? null
@@ -60,6 +67,14 @@ export function TodoItem({ todo, subtasks, categories, templates, onToggle, onDe
           aria-label={todo.done ? 'Mark incomplete' : 'Mark complete'}
         >
           {todo.done ? '✓' : ''}
+        </button>
+        <button
+          className={`priority-flag priority-${todo.priority ?? 'none'}`}
+          onClick={cyclePriority}
+          aria-label={`Priority: ${todo.priority ?? 'none'}`}
+          title={`Priority: ${todo.priority ?? 'none'} (click to change)`}
+        >
+          {todo.priority ? '🚩' : '⚑'}
         </button>
         <span className="todo-text">
           <span className="todo-label">{todo.text}</span>
@@ -140,6 +155,7 @@ export function TodoItem({ todo, subtasks, categories, templates, onToggle, onDe
               onChangeCategory={onChangeCategory}
               onChangeDueDate={onChangeDueDate}
               onChangeDescription={onChangeDescription}
+              onChangePriority={onChangePriority}
               onSetRecurrence={onSetRecurrence}
               onRemoveRecurrence={onRemoveRecurrence}
               subtasksOf={subtasksOf}

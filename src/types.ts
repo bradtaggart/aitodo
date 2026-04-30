@@ -22,6 +22,7 @@ export interface Todo {
   due_date: string | null
   description: string | null
   template_id: number | null
+  priority: 'high' | 'medium' | 'low' | null
 }
 
 export interface Category {

@@ -15,6 +15,7 @@ interface TodoRow {
   due_date: string | null
   description: string | null
   template_id: number | null
+  priority: string | null
 }
 
 interface CategoryRow {
@@ -84,6 +85,7 @@ export function initDb(db: Database.Database) {
   if (!todoCols.includes('template_id')) {
     db.exec('ALTER TABLE todos ADD COLUMN template_id INTEGER REFERENCES recurring_templates(id)')
   }
+  if (!todoCols.includes('priority')) db.exec("ALTER TABLE todos ADD COLUMN priority TEXT")
 }
 
 function nextOccurrence(template: TemplateRow, currentDue: string): string {
@@ -140,6 +142,7 @@ export function createApp(db: Database.Database) {
     updateTodoTemplate: db.prepare<[number, number], Database.RunResult>('UPDATE todos SET template_id = ? WHERE id = ?'),
     spawnTodo: db.prepare<[string, number | null, string | null, string, string, number], Database.RunResult>(
                  'INSERT INTO todos (text, category_id, description, created_at, due_date, template_id) VALUES (?, ?, ?, ?, ?, ?)'),
+    updatePriority: db.prepare<[string | null, number], Database.RunResult>('UPDATE todos SET priority = ? WHERE id = ?'),
   }
 
   const app = express()
@@ -228,6 +231,13 @@ export function createApp(db: Database.Database) {
       }
       if ('description' in req.body) {
         stmts.updateDescription.run(description ?? null, Number(req.params.id))
+      }
+      if ('priority' in req.body) {
+        const { priority } = req.body as { priority?: 'high' | 'medium' | 'low' | null }
+        if (priority !== null && priority !== undefined && !['high', 'medium', 'low'].includes(priority)) {
+          return res.status(400).json({ error: 'priority must be high, medium, low, or null' })
+        }
+        stmts.updatePriority.run(priority ?? null, Number(req.params.id))
       }
       res.json({ ok: true, spawned: spawned ? { ...spawned, done: !!spawned.done } : null })
     } catch (err) {

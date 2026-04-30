@@ -790,6 +790,42 @@ h1 {
   font-family: var(--sans);
 }
 
+.sort-priority-btn {
+  padding: 8px 12px;
+  border: 1px solid var(--border, #ddd);
+  border-radius: 6px;
+  background: none;
+  cursor: pointer;
+  font-size: 13px;
+  color: inherit;
+  opacity: 0.5;
+  white-space: nowrap;
+  font-family: var(--sans);
+  transition: opacity 0.15s, background 0.15s;
+}
+.sort-priority-btn:hover { opacity: 0.8; }
+.sort-priority-btn.active {
+  opacity: 1;
+  background: var(--accent, #3b82f6);
+  color: #fff;
+  border-color: transparent;
+}
+
+.priority-flag {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0 2px;
+  font-size: 14px;
+  opacity: 0.25;
+  transition: opacity 0.15s, filter 0.15s;
+  flex-shrink: 0;
+}
+.priority-flag:hover { opacity: 0.6; }
+.priority-flag.priority-high   { opacity: 1; filter: hue-rotate(0deg);   }
+.priority-flag.priority-medium { opacity: 1; filter: hue-rotate(30deg);  }
+.priority-flag.priority-low    { opacity: 1; filter: hue-rotate(200deg); }
+
 .rec-set-btn {
   padding: 3px 12px;
   font-size: 12px;
