@@ -4,7 +4,8 @@ set -euo pipefail
 DOCKERHUB_IMAGE="bradtaggart/aitodo"
 REMOTE_HOST="lab-services"
 REMOTE_DIR="~/aitodo"
-SSH_OPTS="-o StrictHostKeyChecking=accept-new"
+SSH_CTRL_PATH="/tmp/ssh_mux_aitodo_%r@%h:%p"
+SSH_OPTS="-o StrictHostKeyChecking=accept-new -o ControlMaster=auto -o ControlPath=${SSH_CTRL_PATH} -o ControlPersist=60"
 
 # Load APP_VERSION from .env
 if [[ -f .env ]]; then
@@ -29,7 +30,7 @@ trap 'rm -f "$COMPOSE_TMP"' EXIT
 sed \
   -e '/^\s*build:/d' \
   -e "s|image: aitodo:\${APP_VERSION:-latest}|image: ${DOCKERHUB_IMAGE}:\${APP_VERSION:-latest}|" \
-  -e 's/aitodo-dev/aitodo/' \
+  -e 's/aitodo-dev/aitodo-lab/' \
   docker-compose.yml > "$COMPOSE_TMP"
 
 # 3. Copy compose file and tailscale config to lab-services
@@ -37,6 +38,7 @@ echo "==> Copying files to ${REMOTE_HOST}:${REMOTE_DIR}..."
 ssh $SSH_OPTS "$REMOTE_HOST" "mkdir -p ${REMOTE_DIR}/tailscale"
 scp $SSH_OPTS "$COMPOSE_TMP" "${REMOTE_HOST}:${REMOTE_DIR}/docker-compose.yml"
 scp $SSH_OPTS tailscale/serve.json "${REMOTE_HOST}:${REMOTE_DIR}/tailscale/serve.json"
+scp $SSH_OPTS .env.local "${REMOTE_HOST}:${REMOTE_DIR}/.env.local"
 
 # Write APP_VERSION to remote .env (preserving any existing vars like TS_AUTHKEY)
 ssh $SSH_OPTS "$REMOTE_HOST" "
