@@ -60,6 +60,7 @@ export default function App() {
     changeDueDate,
     changeDescription,
     changePriority,
+    changeTitle,
   } = useTodos()
 
   const {
@@ -186,6 +187,7 @@ export default function App() {
               onChangeDueDate={changeDueDate}
               onChangeDescription={changeDescription}
               onChangePriority={changePriority}
+              onChangeTitle={changeTitle}
               onSetRecurrence={handleSetRecurrence}
               onRemoveRecurrence={handleRemoveRecurrence}
               subtasksOf={subtasksOf}
