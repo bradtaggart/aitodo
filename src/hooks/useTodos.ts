@@ -53,6 +53,9 @@ export function useTodos() {
   const changePriority = (id: number, priority: 'high' | 'medium' | 'low' | null) =>
     withPending(() => api.patchTodo(id, { priority }))
 
+  const changeTitle = (id: number, text: string) =>
+    withPending(() => api.patchTodo(id, { text }))
+
   const subtasksOf = useCallback(
     (id: number) => todos.filter(t => t.parent_id === id),
     [todos]
@@ -73,5 +76,6 @@ export function useTodos() {
     changeDueDate,
     changeDescription,
     changePriority,
+    changeTitle,
   }
 }
