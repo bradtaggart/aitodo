@@ -22,7 +22,7 @@ export const createTodo = (text: string, category_id: number | null = null, pare
     body: JSON.stringify({ text, category_id, parent_id }),
   })
 
-export const patchTodo = (id: number, patch: Partial<Pick<Todo, 'done' | 'category_id' | 'due_date' | 'description' | 'priority'>>) =>
+export const patchTodo = (id: number, patch: Partial<Pick<Todo, 'text' | 'done' | 'category_id' | 'due_date' | 'description' | 'priority'>>) =>
   request<{ ok: true; spawned: Todo | null }>(`/api/todos/${id}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
