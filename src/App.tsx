@@ -2,19 +2,48 @@ import { useState } from 'react'
 import { CategoryBar } from './components/CategoryBar'
 import { TodoItem } from './components/TodoItem'
 import { CalendarPanel } from './components/CalendarPanel'
+import { SortDropdown } from './components/SortDropdown'
+import type { SortBy } from './components/SortDropdown'
 import { useTodos } from './hooks/useTodos'
 import { useCategories } from './hooks/useCategories'
 import { useTemplates } from './hooks/useTemplates'
 import type { SetRecurrenceConfig } from './api'
+import type { Todo, Category } from './types'
 import { toDateStr } from './utils/dates'
 import './App.css'
+
+const PRIORITY_ORDER = { high: 0, medium: 1, low: 2 }
+
+function sortTodos(a: Todo, b: Todo, sortBy: SortBy, categories: Category[]): number {
+  if (sortBy === 'priority') {
+    const pa = a.priority ? PRIORITY_ORDER[a.priority] : 3
+    const pb = b.priority ? PRIORITY_ORDER[b.priority] : 3
+    return pa - pb
+  }
+  if (sortBy === 'due_date') {
+    if (!a.due_date && !b.due_date) return b.id - a.id
+    if (!a.due_date) return 1
+    if (!b.due_date) return -1
+    return a.due_date < b.due_date ? -1 : a.due_date > b.due_date ? 1 : 0
+  }
+  if (sortBy === 'category') {
+    const nameOf = (t: Todo) => categories.find(c => c.id === t.category_id)?.name ?? ''
+    const na = nameOf(a)
+    const nb = nameOf(b)
+    if (!na && !nb) return b.id - a.id
+    if (!na) return 1
+    if (!nb) return -1
+    return na.localeCompare(nb)
+  }
+  return b.id - a.id
+}
 
 export default function App() {
   const [input, setInput] = useState('')
   const [activeCat, setActiveCat] = useState<number | null>(null)
   const [selectedDate, setSelectedDate] = useState<Date | null>(null)
   const [calendarOpen, setCalendarOpen] = useState(true)
-  const [sortByPriority, setSortByPriority] = useState(false)
+  const [sortBy, setSortBy] = useState<SortBy>('none')
 
   const {
     todos,
@@ -81,8 +110,6 @@ export default function App() {
     await loadTodos()
   }
 
-  const PRIORITY_ORDER = { high: 0, medium: 1, low: 2 }
-
   const topLevel = todos
     .filter(t => {
       if (t.parent_id) return false
@@ -90,14 +117,7 @@ export default function App() {
       if (selectedDate !== null && t.due_date !== toDateStr(selectedDate)) return false
       return true
     })
-    .sort((a, b) => {
-      if (sortByPriority) {
-        const pa = a.priority ? PRIORITY_ORDER[a.priority] : 3
-        const pb = b.priority ? PRIORITY_ORDER[b.priority] : 3
-        return pa - pb
-      }
-      return b.id - a.id
-    })
+    .sort((a, b) => sortTodos(a, b, sortBy, categories))
 
   const activeCatObj = categories.find(c => c.id === activeCat) ?? null
 
@@ -127,14 +147,7 @@ export default function App() {
             disabled={pending}
           />
           <button type="submit" disabled={pending}>Add</button>
-          <button
-            type="button"
-            className={`sort-priority-btn${sortByPriority ? ' active' : ''}`}
-            onClick={() => setSortByPriority(v => !v)}
-            title="Sort by priority"
-          >
-            🚩 Sort
-          </button>
+          <SortDropdown value={sortBy} onChange={setSortBy} />
         </form>
         <CategoryBar
           categories={categories}
