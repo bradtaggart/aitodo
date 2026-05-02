@@ -204,6 +204,36 @@ describe('PATCH /api/todos/:id due_date', () => {
   })
 })
 
+describe('PATCH /api/todos/:id text', () => {
+  it('updates the text of a todo', async () => {
+    const create = await request.post('/api/todos').send({ text: 'original' })
+    const id = create.body.id
+    const patch = await request.patch(`/api/todos/${id}`).send({ text: 'updated title' })
+    expect(patch.status).toBe(200)
+    expect(patch.body.ok).toBe(true)
+    const todos = await request.get('/api/todos')
+    const todo = (todos.body as { id: number; text: string }[]).find(t => t.id === id)
+    expect(todo?.text).toBe('updated title')
+  })
+
+  it('trims whitespace from updated text', async () => {
+    const create = await request.post('/api/todos').send({ text: 'original' })
+    const id = create.body.id
+    await request.patch(`/api/todos/${id}`).send({ text: '  trimmed  ' })
+    const todos = await request.get('/api/todos')
+    const todo = (todos.body as { id: number; text: string }[]).find(t => t.id === id)
+    expect(todo?.text).toBe('trimmed')
+  })
+
+  it('rejects blank text with 400', async () => {
+    const create = await request.post('/api/todos').send({ text: 'original' })
+    const id = create.body.id
+    const patch = await request.patch(`/api/todos/${id}`).send({ text: '   ' })
+    expect(patch.status).toBe(400)
+    expect(patch.body.error).toBeDefined()
+  })
+})
+
 describe('DELETE /api/todos/:id', () => {
   it('deletes a todo', async () => {
     const created = await request.post('/api/todos').send({ text: 'to delete' })

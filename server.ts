@@ -143,6 +143,7 @@ export function createApp(db: Database.Database) {
     spawnTodo: db.prepare<[string, number | null, string | null, string, string, number], Database.RunResult>(
                  'INSERT INTO todos (text, category_id, description, created_at, due_date, template_id) VALUES (?, ?, ?, ?, ?, ?)'),
     updatePriority: db.prepare<[string | null, number], Database.RunResult>('UPDATE todos SET priority = ? WHERE id = ?'),
+    updateText: db.prepare<[string, number], Database.RunResult>('UPDATE todos SET text = ? WHERE id = ?'),
   }
 
   const app = express()
@@ -238,6 +239,13 @@ export function createApp(db: Database.Database) {
           return res.status(400).json({ error: 'priority must be high, medium, low, or null' })
         }
         stmts.updatePriority.run(priority ?? null, Number(req.params.id))
+      }
+      if ('text' in req.body) {
+        const { text } = req.body as { text?: string }
+        if (!text || typeof text !== 'string' || !text.trim()) {
+          return res.status(400).json({ error: 'text must be a non-empty string' })
+        }
+        stmts.updateText.run(text.trim(), Number(req.params.id))
       }
       res.json({ ok: true, spawned: spawned ? { ...spawned, done: !!spawned.done } : null })
     } catch (err) {
