@@ -17,6 +17,7 @@ interface Props {
   onChangeDueDate: (id: number, due_date: string | null) => void
   onChangeDescription: (id: number, description: string | null) => void
   onChangePriority: (id: number, priority: 'high' | 'medium' | 'low' | null) => void
+  onChangeTitle: (id: number, text: string) => void
   onSetRecurrence: (todoId: number, config: SetRecurrenceConfig) => Promise<void>
   onRemoveRecurrence: (templateId: number) => Promise<void>
   subtasksOf: (id: number) => Todo[]
@@ -24,17 +25,40 @@ interface Props {
   forceExpanded?: boolean
 }
 
-export function TodoItem({ todo, subtasks, categories, templates, onToggle, onDelete, onAddChild, onChangeCategory, onChangeDueDate, onChangeDescription, onChangePriority, onSetRecurrence, onRemoveRecurrence, subtasksOf, showDueDateChip, forceExpanded = false }: Props) {
+export function TodoItem({ todo, subtasks, categories, templates, onToggle, onDelete, onAddChild, onChangeCategory, onChangeDueDate, onChangeDescription, onChangePriority, onChangeTitle, onSetRecurrence, onRemoveRecurrence, subtasksOf, showDueDateChip, forceExpanded = false }: Props) {
   const [adding, setAdding] = useState(false)
   const [collapsed, setCollapsed] = useState(
     () => localStorage.getItem(`collapsed:${todo.id}`) === 'true'
   )
   const [input, setInput] = useState('')
+  const [editingTitle, setEditingTitle] = useState(false)
+  const [titleDraft, setTitleDraft] = useState(todo.text)
 
   const CYCLE: Record<string, 'high' | 'medium' | 'low' | null> = { high: 'medium', medium: 'low', low: null }
   function cyclePriority() {
     const next = todo.priority ? CYCLE[todo.priority] : 'high'
     onChangePriority(todo.id, next)
+  }
+
+  function handleTitleBlur() {
+    const trimmed = titleDraft.trim()
+    if (trimmed && trimmed !== todo.text) {
+      onChangeTitle(todo.id, trimmed)
+    } else {
+      setTitleDraft(todo.text)
+    }
+    setEditingTitle(false)
+  }
+
+  function handleTitleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === 'Escape') {
+      e.preventDefault()
+      setTitleDraft(todo.text)
+      setEditingTitle(false)
+    }
+    if (e.key === 'Enter') {
+      e.currentTarget.blur()
+    }
   }
 
   const cat = categories.find(c => c.id === todo.category_id) ?? null
@@ -77,7 +101,25 @@ export function TodoItem({ todo, subtasks, categories, templates, onToggle, onDe
           {todo.priority ? '🚩' : '⚑'}
         </button>
         <span className="todo-text">
-          <span className="todo-label">{todo.text}</span>
+          {editingTitle ? (
+            <input
+              className="todo-label-input"
+              autoFocus
+              value={titleDraft}
+              onChange={e => setTitleDraft(e.target.value)}
+              onBlur={handleTitleBlur}
+              onKeyDown={handleTitleKeyDown}
+              aria-label="Edit task title"
+            />
+          ) : (
+            <button
+              className="todo-label"
+              onClick={() => { setTitleDraft(todo.text); setEditingTitle(true) }}
+              aria-label="Edit task title"
+            >
+              {todo.text}
+            </button>
+          )}
           {todo.created_at && (
             <time className="created-at">Created {new Date(todo.created_at).toLocaleString()}</time>
           )}
@@ -156,6 +198,7 @@ export function TodoItem({ todo, subtasks, categories, templates, onToggle, onDe
               onChangeDueDate={onChangeDueDate}
               onChangeDescription={onChangeDescription}
               onChangePriority={onChangePriority}
+              onChangeTitle={onChangeTitle}
               onSetRecurrence={onSetRecurrence}
               onRemoveRecurrence={onRemoveRecurrence}
               subtasksOf={subtasksOf}
