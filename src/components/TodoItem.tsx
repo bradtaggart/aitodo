@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import type { Todo, Category, RecurringTemplate } from '../types'
 import type { SetRecurrenceConfig } from '../api'
 import { DueDateChip } from './DueDateChip'
@@ -33,6 +33,11 @@ export function TodoItem({ todo, subtasks, categories, templates, onToggle, onDe
   const [input, setInput] = useState('')
   const [editingTitle, setEditingTitle] = useState(false)
   const [titleDraft, setTitleDraft] = useState(todo.text)
+  const titleCancelledRef = useRef(false)
+
+  useEffect(() => {
+    if (!editingTitle) setTitleDraft(todo.text)
+  }, [todo.text, editingTitle])
 
   const CYCLE: Record<string, 'high' | 'medium' | 'low' | null> = { high: 'medium', medium: 'low', low: null }
   function cyclePriority() {
@@ -41,6 +46,10 @@ export function TodoItem({ todo, subtasks, categories, templates, onToggle, onDe
   }
 
   function handleTitleBlur() {
+    if (titleCancelledRef.current) {
+      titleCancelledRef.current = false
+      return
+    }
     const trimmed = titleDraft.trim()
     if (trimmed && trimmed !== todo.text) {
       onChangeTitle(todo.id, trimmed)
@@ -53,10 +62,12 @@ export function TodoItem({ todo, subtasks, categories, templates, onToggle, onDe
   function handleTitleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.key === 'Escape') {
       e.preventDefault()
+      titleCancelledRef.current = true
       setTitleDraft(todo.text)
       setEditingTitle(false)
     }
     if (e.key === 'Enter') {
+      e.preventDefault()
       e.currentTarget.blur()
     }
   }
