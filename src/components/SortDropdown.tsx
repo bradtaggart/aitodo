@@ -16,7 +16,7 @@ export function SortDropdown({ value, onChange }: Props) {
       <option value="none">Default</option>
       <option value="due_date">Due Date</option>
       <option value="category">Category</option>
-      <option value="priority">Priority</option>
+      <option value="priority">Flag</option>
     </select>
   )
 }
