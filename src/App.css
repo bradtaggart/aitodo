@@ -439,6 +439,8 @@ h1 {
   padding: 0 2px;
   flex-shrink: 0;
   opacity: 0;
+  display: inline-flex;
+  align-items: center;
 
   .todo-row:hover & {
     opacity: 0.55;
@@ -460,6 +462,8 @@ h1 {
   padding: 0 2px;
   flex-shrink: 0;
   opacity: 0;
+  display: inline-flex;
+  align-items: center;
 
   .todo-row:hover & {
     opacity: 0.55;
@@ -481,6 +485,8 @@ h1 {
   padding: 0 2px;
   flex-shrink: 0;
   opacity: 0;
+  display: inline-flex;
+  align-items: center;
 
   .todo-row:hover & {
     opacity: 0.55;
@@ -862,8 +868,11 @@ h1 {
   padding: 0 2px;
   font-size: 13px;
   opacity: 0;
-  transition: opacity 0.15s, filter 0.15s;
+  transition: opacity 0.15s, color 0.15s;
   flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  color: var(--text);
 
   .todo-row:hover & {
     opacity: 0.55;
@@ -871,9 +880,9 @@ h1 {
 
   &:hover { opacity: 1 !important; }
 }
-.priority-flag.priority-high   { opacity: 1; filter: hue-rotate(0deg);   }
-.priority-flag.priority-medium { opacity: 1; filter: hue-rotate(30deg);  }
-.priority-flag.priority-low    { opacity: 1; filter: hue-rotate(200deg); }
+.priority-flag.priority-high   { opacity: 1; color: #ef4444; }
+.priority-flag.priority-medium { opacity: 1; color: #f97316; }
+.priority-flag.priority-low    { opacity: 1; color: #3b82f6; }
 
 .rec-set-btn {
   padding: 3px 12px;

@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { Plus, Trash2, ChevronRight, ChevronDown, Flag } from 'lucide-react'
 import type { Todo, Category, RecurringTemplate } from '../types'
 import type { SetRecurrenceConfig } from '../api'
 import { DueDateChip } from './DueDateChip'
@@ -109,7 +110,7 @@ export function TodoItem({ todo, subtasks, categories, templates, onToggle, onDe
           aria-label={`Priority: ${todo.priority ?? 'none'}`}
           title={`Priority: ${todo.priority ?? 'none'} (click to change)`}
         >
-          {todo.priority ? '🚩' : '⚑'}
+          <Flag size={14} />
         </button>
         <span className="todo-text">
           {editingTitle ? (
@@ -160,13 +161,13 @@ export function TodoItem({ todo, subtasks, categories, templates, onToggle, onDe
         )}
         {subtasks.length > 0 && !forceExpanded && (
           <button className="collapse" onClick={toggleCollapse} aria-label={collapsed ? 'Expand' : 'Collapse'}>
-            {collapsed ? '▶' : '▼'}
+            {collapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
           </button>
         )}
         {!todo.done && (
-          <button className="add-child" onClick={() => setAdding(v => !v)} aria-label="Add subtask">+</button>
+          <button className="add-child" onClick={() => setAdding(v => !v)} aria-label="Add subtask"><Plus size={14} /></button>
         )}
-        <button className="delete" onClick={() => onDelete(todo.id)} aria-label="Delete task">×</button>
+        <button className="delete" onClick={() => onDelete(todo.id)} aria-label="Delete task"><Trash2 size={14} /></button>
       </div>
       <DescriptionField
         value={todo.description}
