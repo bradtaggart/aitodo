@@ -155,7 +155,7 @@ export function TodoItem({ todo, subtasks, categories, templates, onToggle, onDe
               {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
             {cat && <span className="cat-dot" style={{ background: cat.color }} />}
-            {cat ? cat.name : '+'}
+            {cat ? cat.name : 'Category'}
           </span>
         )}
         {subtasks.length > 0 && !forceExpanded && (

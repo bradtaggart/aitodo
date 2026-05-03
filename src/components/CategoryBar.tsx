@@ -69,7 +69,12 @@ export function CategoryBar({ categories, activeCat, onSelect, onAdd, onDelete }
           <button type="button" onClick={() => setAdding(false)}>Cancel</button>
         </form>
       ) : (
-        <button className="cat-add-btn" type="button" onClick={() => setAdding(true)}>+ Category</button>
+        <button
+          className={`cat-add-btn${activeCat === null ? ' cat-add-btn--labeled' : ''}`}
+          type="button"
+          onClick={() => setAdding(true)}
+          aria-label="Add category"
+        >{activeCat === null ? 'Category' : ''}</button>
       )}
     </div>
   )
