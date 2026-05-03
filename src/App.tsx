@@ -8,11 +8,32 @@ import { useTodos } from './hooks/useTodos'
 import { useCategories } from './hooks/useCategories'
 import { useTemplates } from './hooks/useTemplates'
 import type { SetRecurrenceConfig } from './api'
-import type { Todo, Category } from './types'
+import type { Todo, Category, RecurringTemplate } from './types'
 import { toDateStr } from './utils/dates'
 import './App.css'
 
 const PRIORITY_ORDER = { high: 0, medium: 1, low: 2 }
+
+function isProjectedDate(template: RecurringTemplate, currentDue: string, targetStr: string): boolean {
+  if (targetStr <= currentDue) return false
+  switch (template.recurrence_type) {
+    case 'daily':
+      return true
+    case 'weekly': {
+      const [y, m, d] = targetStr.split('-').map(Number)
+      const dayOfWeek = new Date(y, m - 1, d).getDay()
+      return Boolean(template.day_mask && (template.day_mask & (1 << dayOfWeek)))
+    }
+    case 'monthly':
+      return Number(targetStr.slice(8, 10)) === template.day_of_month
+    case 'custom': {
+      const [y1, m1, d1] = currentDue.split('-').map(Number)
+      const [y2, m2, d2] = targetStr.split('-').map(Number)
+      const diffDays = Math.round((new Date(y2, m2 - 1, d2).getTime() - new Date(y1, m1 - 1, d1).getTime()) / 86400000)
+      return diffDays > 0 && (template.interval_days ?? 0) > 0 && diffDays % template.interval_days! === 0
+    }
+  }
+}
 
 function sortTodos(a: Todo, b: Todo, sortBy: SortBy, categories: Category[]): number {
   if (sortBy === 'priority') {
@@ -91,7 +112,11 @@ export default function App() {
   }
 
   async function handleDeleteTodo(id: number) {
-    if (!window.confirm('Delete this task and all its subtasks?')) return
+    const todo = todos.find(t => t.id === id)
+    const msg = todo?.template_id && !todo.done
+      ? 'Delete this task, all its subtasks, and all future occurrences?'
+      : 'Delete this task and all its subtasks?'
+    if (!window.confirm(msg)) return
     await deleteTodo(id)
   }
 
@@ -115,7 +140,15 @@ export default function App() {
     .filter(t => {
       if (t.parent_id) return false
       if (activeCat !== null && t.category_id !== activeCat) return false
-      if (selectedDate !== null && t.due_date !== toDateStr(selectedDate)) return false
+      if (selectedDate !== null) {
+        const selectedStr = toDateStr(selectedDate)
+        if (t.due_date === selectedStr) return true
+        if (t.template_id && !t.done && t.due_date) {
+          const tmpl = templates.find(tmpl => tmpl.id === t.template_id)
+          if (tmpl && isProjectedDate(tmpl, t.due_date, selectedStr)) return true
+        }
+        return false
+      }
       return true
     })
     .sort((a, b) => sortTodos(a, b, sortBy, categories))
@@ -126,6 +159,7 @@ export default function App() {
     <div className="app-layout">
       <CalendarPanel
         todos={todos}
+        templates={templates}
         selectedDate={selectedDate}
         onDateSelect={setSelectedDate}
         open={calendarOpen}

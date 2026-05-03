@@ -138,6 +138,8 @@ export function createApp(db: Database.Database) {
     insertTemplate:     db.prepare<[string, number | null, string | null, string, number | null, number | null, number | null], Database.RunResult>(
                           'INSERT INTO recurring_templates (text, category_id, description, recurrence_type, day_mask, interval_days, day_of_month) VALUES (?, ?, ?, ?, ?, ?, ?)'),
     deleteTemplate: db.prepare<[number], Database.RunResult>('DELETE FROM recurring_templates WHERE id = ?'),
+    getUndoneTodosByTemplate: db.prepare<[number], { id: number }>('SELECT id FROM todos WHERE template_id = ? AND done = 0'),
+    nullifyTemplateRef: db.prepare<[number], Database.RunResult>('UPDATE todos SET template_id = NULL WHERE template_id = ?'),
     getTodo:            db.prepare<[number], TodoRow>('SELECT * FROM todos WHERE id = ?'),
     updateTodoTemplate: db.prepare<[number, number], Database.RunResult>('UPDATE todos SET template_id = ? WHERE id = ?'),
     spawnTodo: db.prepare<[string, number | null, string | null, string, string, number], Database.RunResult>(
@@ -259,7 +261,20 @@ export function createApp(db: Database.Database) {
         for (const child of stmts.getChildren.all(id)) deleteTree(child.id)
         stmts.delete.run(id)
       }
-      db.transaction(deleteTree)(Number(req.params.id))
+      db.transaction((id: number) => {
+        const todo = stmts.getTodo.get(id)
+        const templateId = todo?.template_id
+
+        deleteTree(id)
+
+        if (templateId && !todo!.done) {
+          for (const { id: siblingId } of stmts.getUndoneTodosByTemplate.all(templateId)) {
+            deleteTree(siblingId)
+          }
+          stmts.nullifyTemplateRef.run(templateId)
+          stmts.deleteTemplate.run(templateId)
+        }
+      })(Number(req.params.id))
       res.json({ ok: true })
     } catch (err) {
       res.status(500).json({ error: (err as Error).message })
