@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { CategoryBar } from './components/CategoryBar'
-import { TodoItem } from './components/TodoItem'
+import { TodoItem, TodoListProvider } from './components/TodoItem'
 import { CalendarPanel } from './components/CalendarPanel'
 import { SortDropdown } from './components/SortDropdown'
 import type { SortBy } from './components/SortDropdown'
@@ -206,30 +206,29 @@ export default function App() {
           </div>
         )}
         {topLevel.length === 0 && <p className="empty">{selectedDate ? 'No tasks due on this day.' : 'No tasks yet.'}</p>}
-        <ul className="todo-list">
-          {topLevel.map(todo => (
-            <TodoItem
-              key={todo.id}
-              todo={todo}
-              subtasks={subtasksOf(todo.id)}
-              categories={categories}
-              templates={templates}
-              onToggle={toggleTodo}
-              onDelete={handleDeleteTodo}
-              onAddChild={addChild}
-              onChangeCategory={changeCategory}
-              onChangeDueDate={changeDueDate}
-              onChangeDescription={changeDescription}
-              onChangePriority={changePriority}
-              onChangeTitle={changeTitle}
-              onSetRecurrence={handleSetRecurrence}
-              onRemoveRecurrence={handleRemoveRecurrence}
-              subtasksOf={subtasksOf}
-              showDueDateChip={selectedDate === null}
-              forceExpanded={selectedDate !== null}
-            />
-          ))}
-        </ul>
+        <TodoListProvider value={{
+          categories,
+          templates,
+          subtasksOf,
+          showDueDateChip: selectedDate === null,
+          forceExpanded: selectedDate !== null,
+          onToggle: toggleTodo,
+          onDelete: handleDeleteTodo,
+          onAddChild: addChild,
+          onChangeCategory: changeCategory,
+          onChangeDueDate: changeDueDate,
+          onChangeDescription: changeDescription,
+          onChangePriority: changePriority,
+          onChangeTitle: changeTitle,
+          onSetRecurrence: handleSetRecurrence,
+          onRemoveRecurrence: handleRemoveRecurrence,
+        }}>
+          <ul className="todo-list">
+            {topLevel.map(todo => (
+              <TodoItem key={todo.id} todo={todo} />
+            ))}
+          </ul>
+        </TodoListProvider>
       </main>
     </div>
   )

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, createContext, useContext } from 'react'
 import { Plus, Trash2, ChevronRight, ChevronDown, Flag } from 'lucide-react'
 import type { Todo, Category, RecurringTemplate } from '../types'
 import type { SetRecurrenceConfig } from '../api'
@@ -6,11 +6,12 @@ import { DueDateChip } from './DueDateChip'
 import { DescriptionField } from './DescriptionField'
 import { RecurrencePicker } from './RecurrencePicker'
 
-interface Props {
-  todo: Todo
-  subtasks: Todo[]
+interface TodoListContextValue {
   categories: Category[]
   templates: RecurringTemplate[]
+  subtasksOf: (id: number) => Todo[]
+  showDueDateChip: boolean
+  forceExpanded: boolean
   onToggle: (id: number, done: boolean) => void
   onDelete: (id: number) => void
   onAddChild: (text: string, parent_id: number) => void
@@ -21,12 +22,31 @@ interface Props {
   onChangeTitle: (id: number, text: string) => void
   onSetRecurrence: (todoId: number, config: SetRecurrenceConfig) => Promise<void>
   onRemoveRecurrence: (templateId: number) => Promise<void>
-  subtasksOf: (id: number) => Todo[]
-  showDueDateChip: boolean
-  forceExpanded?: boolean
 }
 
-export function TodoItem({ todo, subtasks, categories, templates, onToggle, onDelete, onAddChild, onChangeCategory, onChangeDueDate, onChangeDescription, onChangePriority, onChangeTitle, onSetRecurrence, onRemoveRecurrence, subtasksOf, showDueDateChip, forceExpanded = false }: Props) {
+const TodoListContext = createContext<TodoListContextValue | null>(null)
+
+function useTodoList() {
+  const ctx = useContext(TodoListContext)
+  if (!ctx) throw new Error('useTodoList must be used within a TodoListProvider')
+  return ctx
+}
+
+export function TodoListProvider({ value, children }: { value: TodoListContextValue; children: React.ReactNode }) {
+  return <TodoListContext.Provider value={value}>{children}</TodoListContext.Provider>
+}
+
+export function TodoItem({ todo }: { todo: Todo }) {
+  const {
+    categories, templates, subtasksOf,
+    showDueDateChip, forceExpanded,
+    onToggle, onDelete, onAddChild,
+    onChangeCategory, onChangeDueDate, onChangeDescription,
+    onChangePriority, onChangeTitle, onSetRecurrence, onRemoveRecurrence,
+  } = useTodoList()
+
+  const subtasks = subtasksOf(todo.id)
+
   const [adding, setAdding] = useState(false)
   const [collapsed, setCollapsed] = useState(
     () => localStorage.getItem(`collapsed:${todo.id}`) === 'true'
@@ -139,7 +159,7 @@ export function TodoItem({ todo, subtasks, categories, templates, onToggle, onDe
             <time className="completed-at">Completed {new Date(todo.completed_at).toLocaleString()}</time>
           )}
         </span>
-        {showDueDateChip && (
+        {showDueDateChip && todo.parent_id === null && (
           <DueDateChip
             dueDate={todo.due_date}
             onChange={due_date => onChangeDueDate(todo.id, due_date)}
@@ -178,7 +198,7 @@ export function TodoItem({ todo, subtasks, categories, templates, onToggle, onDe
           dueDate={todo.due_date}
           template={template}
           onSet={config => onSetRecurrence(todo.id, config)}
-          onRemove={() => template && onRemoveRecurrence(template.id)}
+          onRemove={async () => { if (template) await onRemoveRecurrence(template.id) }}
         />
       )}
       {adding && (
@@ -197,26 +217,7 @@ export function TodoItem({ todo, subtasks, categories, templates, onToggle, onDe
       {subtasks.length > 0 && isExpanded && (
         <ul className="todo-list child-list">
           {subtasks.map(child => (
-            <TodoItem
-              key={child.id}
-              todo={child}
-              subtasks={subtasksOf(child.id)}
-              categories={categories}
-              templates={templates}
-              onToggle={onToggle}
-              onDelete={onDelete}
-              onAddChild={onAddChild}
-              onChangeCategory={onChangeCategory}
-              onChangeDueDate={onChangeDueDate}
-              onChangeDescription={onChangeDescription}
-              onChangePriority={onChangePriority}
-              onChangeTitle={onChangeTitle}
-              onSetRecurrence={onSetRecurrence}
-              onRemoveRecurrence={onRemoveRecurrence}
-              subtasksOf={subtasksOf}
-              showDueDateChip={false}
-              forceExpanded={forceExpanded}
-            />
+            <TodoItem key={child.id} todo={child} />
           ))}
         </ul>
       )}
