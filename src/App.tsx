@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { CategoryBar } from './components/CategoryBar'
 import { TodoItem, TodoListProvider } from './components/TodoItem'
 import { CalendarPanel } from './components/CalendarPanel'
@@ -9,6 +9,7 @@ import { fetchMe, patchMe } from './api'
 import type { Todo, Category } from './types'
 import type { RecurringTemplate } from './recurrence'
 import { isProjectedDate } from './recurrence'
+import { buildTree } from './utils/tree'
 import { toDateStr } from './utils/dates'
 import './App.css'
 
@@ -64,7 +65,6 @@ export default function App() {
     pending,
     error,
     clearError,
-    subtasksOf,
     addTodo,
     addChild,
     toggleTodo,
@@ -102,9 +102,10 @@ export default function App() {
     if (activeCat === id) setActiveCat(null)
   }
 
-  const topLevel = todos
+  const { topLevel: allTopLevel, subtasksOf } = useMemo(() => buildTree(todos), [todos])
+
+  const topLevel = allTopLevel
     .filter(t => {
-      if (t.parent_id) return false
       if (activeCat !== null && t.category_id !== activeCat) return false
       if (selectedDate !== null) {
         const selectedStr = toDateStr(selectedDate)

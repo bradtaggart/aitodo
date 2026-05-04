@@ -32,11 +32,6 @@ export function useTodoStore() {
     }
   }
 
-  const subtasksOf = useCallback(
-    (id: number) => todos.filter(t => t.parent_id === id),
-    [todos]
-  )
-
   return {
     todos,
     categories,
@@ -44,7 +39,6 @@ export function useTodoStore() {
     pending,
     error,
     clearError: () => setError(null),
-    subtasksOf,
 
     addTodo: (text: string, category_id: number | null) =>
       withPending(async () => { await api.createTodo(text, category_id); await loadTodos() }),
