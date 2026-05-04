@@ -89,6 +89,19 @@ export function projectFutureDates(template: RecurringTemplate, startDue: string
   return dates
 }
 
+export function getTaskDates(todos: Todo[], templates: RecurringTemplate[], horizonStr: string): Set<string> {
+  const dates = new Set<string>()
+  for (const todo of todos) {
+    if (todo.parent_id === null && todo.due_date !== null) dates.add(todo.due_date)
+  }
+  for (const template of templates) {
+    const current = todos.find(t => t.template_id === template.id && !t.done && t.due_date !== null)
+    if (!current?.due_date) continue
+    for (const d of projectFutureDates(template, current.due_date, horizonStr)) dates.add(d)
+  }
+  return dates
+}
+
 export function isProjectedDate(template: RecurringTemplate, currentDue: string, targetStr: string): boolean {
   if (targetStr <= currentDue) return false
   switch (template.recurrence_type) {

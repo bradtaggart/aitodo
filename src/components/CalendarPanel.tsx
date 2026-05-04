@@ -2,7 +2,7 @@ import { DayPicker } from 'react-day-picker'
 import 'react-day-picker/style.css'
 import type { Todo } from '../types'
 import type { RecurringTemplate } from '../recurrence'
-import { projectFutureDates } from '../recurrence'
+import { getTaskDates } from '../recurrence'
 import { toDateStr } from '../utils/dates'
 
 interface Props {
@@ -15,19 +15,8 @@ interface Props {
 }
 
 export function CalendarPanel({ todos, templates, selectedDate, onDateSelect, open, onToggle }: Props) {
-  const taskKeys = new Set<string>()
-
-  todos.filter(t => t.parent_id === null && t.due_date !== null)
-       .forEach(t => taskKeys.add(t.due_date!))
-
   const horizonStr = `${new Date().getFullYear() + 2}-12-31`
-  for (const template of templates) {
-    const current = todos.find(t => t.template_id === template.id && !t.done && t.due_date !== null)
-    if (!current?.due_date) continue
-    for (const d of projectFutureDates(template, current.due_date, horizonStr)) {
-      taskKeys.add(d)
-    }
-  }
+  const taskKeys = getTaskDates(todos, templates, horizonStr)
 
   function hasTasks(day: Date): boolean {
     return taskKeys.has(toDateStr(day))
