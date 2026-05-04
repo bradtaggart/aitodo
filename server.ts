@@ -3,7 +3,7 @@ import Database from 'better-sqlite3'
 import cors from 'cors'
 import { fileURLToPath } from 'url'
 import { join, dirname } from 'path'
-import { advanceByRecurrence } from './src/utils/recurrence-math'
+import { advanceByRecurrence } from './src/utils/recurrence-math.ts'
 
 interface TodoRow {
   id: number
