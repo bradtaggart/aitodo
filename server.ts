@@ -35,6 +35,12 @@ interface TemplateRow {
   day_of_month: number | null
 }
 
+interface UserRow {
+  id: number
+  name: string
+  preferences: string
+}
+
 export function initDb(db: Database.Database) {
   db.pragma('foreign_keys = ON')
 
@@ -86,6 +92,19 @@ export function initDb(db: Database.Database) {
     db.exec('ALTER TABLE todos ADD COLUMN template_id INTEGER REFERENCES recurring_templates(id)')
   }
   if (!todoCols.includes('priority')) db.exec("ALTER TABLE todos ADD COLUMN priority TEXT")
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS users (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      preferences TEXT NOT NULL DEFAULT '{}'
+    )
+  `)
+
+  const userCount = (db.prepare('SELECT COUNT(*) as count FROM users').get() as { count: number }).count
+  if (userCount === 0) {
+    db.prepare('INSERT INTO users (name, preferences) VALUES (?, ?)').run('default', '{}')
+  }
 }
 
 function nextOccurrence(template: TemplateRow, currentDue: string): string {
@@ -146,6 +165,8 @@ export function createApp(db: Database.Database) {
                  'INSERT INTO todos (text, category_id, description, created_at, due_date, template_id) VALUES (?, ?, ?, ?, ?, ?)'),
     updatePriority: db.prepare<[string | null, number], Database.RunResult>('UPDATE todos SET priority = ? WHERE id = ?'),
     updateText: db.prepare<[string, number], Database.RunResult>('UPDATE todos SET text = ? WHERE id = ?'),
+    getMe: db.prepare<[], UserRow>('SELECT * FROM users WHERE id = 1'),
+    updateMe: db.prepare<[string], Database.RunResult>('UPDATE users SET preferences = ? WHERE id = 1'),
   }
 
   const app = express()
@@ -379,6 +400,27 @@ export function createApp(db: Database.Database) {
       res.json({ ok: true })
     } catch (err) {
       db.pragma('foreign_keys = ON')
+      res.status(500).json({ error: (err as Error).message })
+    }
+  })
+
+  app.get('/api/me', (_req: Request, res: Response) => {
+    try {
+      const user = stmts.getMe.get()!
+      res.json({ ...user, preferences: JSON.parse(user.preferences) })
+    } catch (err) {
+      res.status(500).json({ error: (err as Error).message })
+    }
+  })
+
+  app.patch('/api/me', (req: Request, res: Response) => {
+    try {
+      const user = stmts.getMe.get()!
+      const current = JSON.parse(user.preferences)
+      const updated = { ...current, ...(req.body as { preferences?: object }).preferences }
+      stmts.updateMe.run(JSON.stringify(updated))
+      res.json({ ok: true })
+    } catch (err) {
       res.status(500).json({ error: (err as Error).message })
     }
   })

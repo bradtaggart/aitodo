@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { CategoryBar } from './components/CategoryBar'
 import { TodoItem, TodoListProvider } from './components/TodoItem'
 import { CalendarPanel } from './components/CalendarPanel'
 import { SortDropdown } from './components/SortDropdown'
 import type { SortBy } from './components/SortDropdown'
 import { useTodoStore } from './hooks/useTodoStore'
+import { fetchMe, patchMe } from './api'
 import type { Todo, Category } from './types'
 import type { RecurringTemplate } from './recurrence'
 import { isProjectedDate } from './recurrence'
@@ -43,6 +44,18 @@ export default function App() {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null)
   const [calendarOpen, setCalendarOpen] = useState(true)
   const [sortBy, setSortBy] = useState<SortBy>('none')
+
+  useEffect(() => {
+    fetchMe().then(user => {
+      const saved = user.preferences.sort_by
+      if (saved) setSortBy(saved as SortBy)
+    }).catch(() => {})
+  }, [])
+
+  function handleSortChange(value: SortBy) {
+    setSortBy(value)
+    patchMe({ sort_by: value }).catch(() => {})
+  }
 
   const {
     todos,
@@ -135,7 +148,7 @@ export default function App() {
             disabled={pending}
           />
           <button type="submit" disabled={pending}>Add</button>
-          <SortDropdown value={sortBy} onChange={setSortBy} />
+          <SortDropdown value={sortBy} onChange={handleSortChange} />
         </form>
         <CategoryBar
           categories={categories}

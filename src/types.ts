@@ -17,3 +17,11 @@ export interface Category {
   name: string
   color: string
 }
+
+export interface User {
+  id: number
+  name: string
+  preferences: {
+    sort_by?: string
+  }
+}

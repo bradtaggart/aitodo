@@ -1,4 +1,4 @@
-import type { Todo, Category } from './types'
+import type { Todo, Category, User } from './types'
 
 export async function request<T>(url: string, options?: RequestInit): Promise<T> {
   const res = await fetch(url, options)
@@ -41,3 +41,13 @@ export const createCategory = (name: string, color: string) =>
 
 export const eraseCategory = (id: number) =>
   request<{ ok: true; affectedTodoIds: number[] }>(`/api/categories/${id}`, { method: 'DELETE' })
+
+export const fetchMe = () =>
+  request<User>('/api/me')
+
+export const patchMe = (preferences: User['preferences']) =>
+  request<{ ok: true }>('/api/me', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ preferences }),
+  })
