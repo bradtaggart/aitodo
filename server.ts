@@ -3,6 +3,7 @@ import Database from 'better-sqlite3'
 import cors from 'cors'
 import { fileURLToPath } from 'url'
 import { join, dirname } from 'path'
+import { advanceByRecurrence } from './src/utils/recurrence-math'
 
 interface TodoRow {
   id: number
@@ -107,34 +108,6 @@ export function initDb(db: Database.Database) {
   }
 }
 
-function nextOccurrence(template: TemplateRow, currentDue: string): string {
-  const d = new Date(currentDue + 'T12:00:00Z')
-  switch (template.recurrence_type) {
-    case 'daily':
-      d.setUTCDate(d.getUTCDate() + 1)
-      break
-    case 'weekly': {
-      const mask = template.day_mask!
-      for (let i = 1; i <= 7; i++) {
-        const candidate = new Date(d)
-        candidate.setUTCDate(d.getUTCDate() + i)
-        if (mask & (1 << candidate.getUTCDay())) {
-          return candidate.toISOString().slice(0, 10)
-        }
-      }
-      throw new Error('weekly template has no valid day in mask')
-    }
-    case 'monthly': {
-      d.setUTCMonth(d.getUTCMonth() + 1)
-      d.setUTCDate(template.day_of_month!)
-      break
-    }
-    case 'custom':
-      d.setUTCDate(d.getUTCDate() + template.interval_days!)
-      break
-  }
-  return d.toISOString().slice(0, 10)
-}
 
 export function createApp(db: Database.Database) {
   const stmts = {
@@ -231,7 +204,7 @@ export function createApp(db: Database.Database) {
             if (todo?.template_id && todo.due_date) {
               const template = stmts.getTemplateById.get(todo.template_id)
               if (template) {
-                const nextDue = nextOccurrence(template, todo.due_date)
+                const nextDue = advanceByRecurrence(template, todo.due_date)
                 const created_at = new Date().toISOString()
                 const spawnResult = stmts.spawnTodo.run(
                   template.text, template.category_id, template.description,
