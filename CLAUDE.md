@@ -22,3 +22,17 @@ This is a minimal React 19 + Vite 8 single-page app. All application code lives 
 - `App.css` / `index.css` — component and global styles respectively
 
 Static assets served from `public/` (e.g. `icons.svg`) are referenced via root-relative paths in JSX. Images imported directly in JSX (e.g. `hero.png`, `react.svg`) are bundled by Vite.
+
+## Agent skills
+
+### Issue tracker
+
+Issues live in GitHub Issues (`bradtaggart/aitodo`), managed via the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default label vocabulary — `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context repo — `CONTEXT.md` at root, ADRs in `docs/adr/`. See `docs/agents/domain.md`.
