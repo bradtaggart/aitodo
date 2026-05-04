@@ -13,6 +13,7 @@ COPY package*.json ./
 RUN npm ci --omit=dev && npm install tsx
 COPY --from=builder /app/dist ./dist
 COPY server.ts tsconfig.json ./
+COPY src/utils ./src/utils
 ENV NODE_ENV=production
 EXPOSE 3001
 CMD ["npx", "tsx", "server.ts"]
