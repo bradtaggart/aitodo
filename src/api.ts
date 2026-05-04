@@ -1,6 +1,6 @@
-import type { Todo, Category, RecurringTemplate, RecurrenceType } from './types'
+import type { Todo, Category } from './types'
 
-async function request<T>(url: string, options?: RequestInit): Promise<T> {
+export async function request<T>(url: string, options?: RequestInit): Promise<T> {
   const res = await fetch(url, options)
   if (!res.ok) {
     const body = await res.json().catch(() => ({})) as { error?: string }
@@ -41,22 +41,3 @@ export const createCategory = (name: string, color: string) =>
 
 export const eraseCategory = (id: number) =>
   request<{ ok: true }>(`/api/categories/${id}`, { method: 'DELETE' })
-
-export type SetRecurrenceConfig = {
-  recurrence_type: RecurrenceType
-  day_mask?: number
-  interval_days?: number
-}
-
-export const fetchTemplates = () =>
-  request<RecurringTemplate[]>('/api/templates')
-
-export const createTemplate = (todo_id: number, config: SetRecurrenceConfig) =>
-  request<{ template: RecurringTemplate; todo: Todo }>('/api/templates', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ todo_id, ...config }),
-  })
-
-export const eraseTemplate = (id: number) =>
-  request<{ ok: true }>(`/api/templates/${id}`, { method: 'DELETE' })

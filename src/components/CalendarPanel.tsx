@@ -1,8 +1,9 @@
 import { DayPicker } from 'react-day-picker'
 import 'react-day-picker/style.css'
-import type { Todo, RecurringTemplate } from '../types'
+import type { Todo } from '../types'
+import type { RecurringTemplate } from '../recurrence'
+import { projectFutureDates } from '../recurrence'
 import { toDateStr } from '../utils/dates'
-import { projectFutureDates } from '../utils/recurrence'
 
 interface Props {
   todos: Todo[]

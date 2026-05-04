@@ -1,7 +1,6 @@
 import { useState } from 'react'
-import type { RecurringTemplate, RecurrenceType } from '../types'
-import type { SetRecurrenceConfig } from '../api'
-import { recurrenceLabel } from '../utils/recurrence'
+import type { RecurringTemplate, RecurrenceType, SetRecurrenceConfig } from '../recurrence'
+import { recurrenceLabel } from '../recurrence'
 
 interface Props {
   dueDate: string | null

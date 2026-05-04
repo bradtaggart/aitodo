@@ -5,32 +5,13 @@ import { CalendarPanel } from './components/CalendarPanel'
 import { SortDropdown } from './components/SortDropdown'
 import type { SortBy } from './components/SortDropdown'
 import { useTodoStore } from './hooks/useTodoStore'
-import type { Todo, Category, RecurringTemplate } from './types'
+import type { Todo, Category } from './types'
+import type { RecurringTemplate } from './recurrence'
+import { isProjectedDate } from './recurrence'
 import { toDateStr } from './utils/dates'
 import './App.css'
 
 const PRIORITY_ORDER = { high: 0, medium: 1, low: 2 }
-
-function isProjectedDate(template: RecurringTemplate, currentDue: string, targetStr: string): boolean {
-  if (targetStr <= currentDue) return false
-  switch (template.recurrence_type) {
-    case 'daily':
-      return true
-    case 'weekly': {
-      const [y, m, d] = targetStr.split('-').map(Number)
-      const dayOfWeek = new Date(y, m - 1, d).getDay()
-      return Boolean(template.day_mask && (template.day_mask & (1 << dayOfWeek)))
-    }
-    case 'monthly':
-      return Number(targetStr.slice(8, 10)) === template.day_of_month
-    case 'custom': {
-      const [y1, m1, d1] = currentDue.split('-').map(Number)
-      const [y2, m2, d2] = targetStr.split('-').map(Number)
-      const diffDays = Math.round((new Date(y2, m2 - 1, d2).getTime() - new Date(y1, m1 - 1, d1).getTime()) / 86400000)
-      return diffDays > 0 && (template.interval_days ?? 0) > 0 && diffDays % template.interval_days! === 0
-    }
-  }
-}
 
 function sortTodos(a: Todo, b: Todo, sortBy: SortBy, categories: Category[]): number {
   if (sortBy === 'priority') {

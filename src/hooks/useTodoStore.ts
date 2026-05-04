@@ -1,7 +1,8 @@
 import { useState, useCallback, useEffect } from 'react'
-import type { Todo, Category, RecurringTemplate } from '../types'
-import type { SetRecurrenceConfig } from '../api'
+import type { Todo, Category } from '../types'
 import * as api from '../api'
+import type { RecurringTemplate, SetRecurrenceConfig } from '../recurrence'
+import { fetchTemplates, createTemplate, eraseTemplate } from '../recurrence'
 
 export function useTodoStore() {
   const [todos, setTodos] = useState<Todo[]>([])
@@ -12,7 +13,7 @@ export function useTodoStore() {
 
   const loadTodos = useCallback(() => api.fetchTodos().then(setTodos), [])
   const loadCategories = useCallback(() => api.fetchCategories().then(setCategories), [])
-  const loadTemplates = useCallback(() => api.fetchTemplates().then(setTemplates), [])
+  const loadTemplates = useCallback(() => fetchTemplates().then(setTemplates), [])
 
   useEffect(() => {
     Promise.all([loadTodos(), loadCategories(), loadTemplates()]).catch(err => {
@@ -83,13 +84,13 @@ export function useTodoStore() {
 
     createTemplate: (todo_id: number, config: SetRecurrenceConfig) =>
       withPending(async () => {
-        await api.createTemplate(todo_id, config)
+        await createTemplate(todo_id, config)
         await Promise.all([loadTemplates(), loadTodos()])
       }),
 
     deleteTemplate: (id: number) =>
       withPending(async () => {
-        await api.eraseTemplate(id)
+        await eraseTemplate(id)
         await Promise.all([loadTemplates(), loadTodos()])
       }),
   }
