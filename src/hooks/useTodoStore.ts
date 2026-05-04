@@ -53,19 +53,19 @@ export function useTodoStore() {
       withPending(async () => { await api.eraseTodo(id); await loadTodos() }),
 
     changeCategory: (id: number, category_id: number | null) =>
-      withPending(async () => { await api.patchTodo(id, { category_id }); await loadTodos() }),
+      withPending(async () => { await api.patchTodo(id, { category_id }); setTodos(prev => prev.map(t => t.id === id ? { ...t, category_id } : t)) }),
 
     changeDueDate: (id: number, due_date: string | null) =>
-      withPending(async () => { await api.patchTodo(id, { due_date }); await loadTodos() }),
+      withPending(async () => { await api.patchTodo(id, { due_date }); setTodos(prev => prev.map(t => t.id === id ? { ...t, due_date } : t)) }),
 
     changeDescription: (id: number, description: string | null) =>
-      withPending(async () => { await api.patchTodo(id, { description }); await loadTodos() }),
+      withPending(async () => { await api.patchTodo(id, { description }); setTodos(prev => prev.map(t => t.id === id ? { ...t, description } : t)) }),
 
     changePriority: (id: number, priority: 'high' | 'medium' | 'low' | null) =>
-      withPending(async () => { await api.patchTodo(id, { priority }); await loadTodos() }),
+      withPending(async () => { await api.patchTodo(id, { priority }); setTodos(prev => prev.map(t => t.id === id ? { ...t, priority } : t)) }),
 
     changeTitle: (id: number, text: string) =>
-      withPending(async () => { await api.patchTodo(id, { text }); await loadTodos() }),
+      withPending(async () => { await api.patchTodo(id, { text }); setTodos(prev => prev.map(t => t.id === id ? { ...t, text } : t)) }),
 
     addCategory: (name: string, color: string) =>
       withPending(async () => { await api.createCategory(name, color); await loadCategories() }),
