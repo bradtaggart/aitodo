@@ -2,18 +2,20 @@ import { request } from './api'
 import type { Todo } from './types'
 import { toDateStr } from './utils/dates'
 
-export type RecurrenceType = 'daily' | 'weekly' | 'monthly' | 'custom'
-
-export interface RecurringTemplate {
+type TemplateBase = {
   id: number
   text: string
   category_id: number | null
   description: string | null
-  recurrence_type: RecurrenceType
-  day_mask: number | null
-  interval_days: number | null
-  day_of_month: number | null
 }
+
+type DailyTemplate   = TemplateBase & { recurrence_type: 'daily';   day_mask: null;   interval_days: null;   day_of_month: null }
+type WeeklyTemplate  = TemplateBase & { recurrence_type: 'weekly';  day_mask: number; interval_days: null;   day_of_month: null }
+type MonthlyTemplate = TemplateBase & { recurrence_type: 'monthly'; day_mask: null;   interval_days: null;   day_of_month: number }
+type CustomTemplate  = TemplateBase & { recurrence_type: 'custom';  day_mask: null;   interval_days: number; day_of_month: null }
+
+export type RecurringTemplate = DailyTemplate | WeeklyTemplate | MonthlyTemplate | CustomTemplate
+export type RecurrenceType = RecurringTemplate['recurrence_type']
 
 export type SetRecurrenceConfig = {
   recurrence_type: RecurrenceType
@@ -42,7 +44,7 @@ export function recurrenceLabel(t: RecurringTemplate): string {
     case 'monthly': return 'monthly'
     case 'custom':  return `every ${t.interval_days}d`
     case 'weekly': {
-      const days = DAY_NAMES.filter((_, i) => (t.day_mask! >> i) & 1)
+      const days = DAY_NAMES.filter((_, i) => (t.day_mask >> i) & 1)
       return days.length === 1 ? `every ${days[0]}` : days.join('/')
     }
   }
@@ -56,7 +58,7 @@ function nextOccurrenceDate(template: RecurringTemplate, currentDue: string): st
       date.setDate(date.getDate() + 1)
       break
     case 'weekly': {
-      const mask = template.day_mask!
+      const mask = template.day_mask
       for (let i = 1; i <= 7; i++) {
         const candidate = new Date(date)
         candidate.setDate(date.getDate() + i)
@@ -66,10 +68,10 @@ function nextOccurrenceDate(template: RecurringTemplate, currentDue: string): st
     }
     case 'monthly':
       date.setMonth(date.getMonth() + 1)
-      date.setDate(template.day_of_month!)
+      date.setDate(template.day_of_month)
       break
     case 'custom':
-      date.setDate(date.getDate() + template.interval_days!)
+      date.setDate(date.getDate() + template.interval_days)
       break
   }
   return toDateStr(date)
@@ -95,7 +97,7 @@ export function isProjectedDate(template: RecurringTemplate, currentDue: string,
     case 'weekly': {
       const [y, m, d] = targetStr.split('-').map(Number)
       const dayOfWeek = new Date(y, m - 1, d).getDay()
-      return Boolean(template.day_mask && (template.day_mask & (1 << dayOfWeek)))
+      return (template.day_mask & (1 << dayOfWeek)) !== 0
     }
     case 'monthly':
       return Number(targetStr.slice(8, 10)) === template.day_of_month
@@ -103,7 +105,7 @@ export function isProjectedDate(template: RecurringTemplate, currentDue: string,
       const [y1, m1, d1] = currentDue.split('-').map(Number)
       const [y2, m2, d2] = targetStr.split('-').map(Number)
       const diffDays = Math.round((new Date(y2, m2 - 1, d2).getTime() - new Date(y1, m1 - 1, d1).getTime()) / 86400000)
-      return diffDays > 0 && (template.interval_days ?? 0) > 0 && diffDays % template.interval_days! === 0
+      return diffDays > 0 && template.interval_days > 0 && diffDays % template.interval_days === 0
     }
   }
 }
