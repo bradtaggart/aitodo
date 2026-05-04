@@ -130,7 +130,7 @@ export function createApp(db: Database.Database) {
     getAllCats:    db.prepare<[], CategoryRow>('SELECT * FROM categories ORDER BY id'),
     insertCat:    db.prepare<[string, string], Database.RunResult>('INSERT INTO categories (name, color) VALUES (?, ?)'),
     deleteCat:    db.prepare<[number], Database.RunResult>('DELETE FROM categories WHERE id = ?'),
-    clearTodoCat: db.prepare<[number], Database.RunResult>('UPDATE todos SET category_id = NULL WHERE category_id = ?'),
+    clearTodoCat: db.prepare<[number], { id: number }>('UPDATE todos SET category_id = NULL WHERE category_id = ? RETURNING id'),
     updateDueDate: db.prepare<[string | null, number], Database.RunResult>('UPDATE todos SET due_date = ? WHERE id = ?'),
     updateDescription: db.prepare<[string | null, number], Database.RunResult>('UPDATE todos SET description = ? WHERE id = ?'),
     getAllTemplates:     db.prepare<[], TemplateRow>('SELECT * FROM recurring_templates ORDER BY id'),
@@ -307,9 +307,10 @@ export function createApp(db: Database.Database) {
 
   app.delete('/api/categories/:id', (req: Request, res: Response) => {
     try {
-      stmts.clearTodoCat.run(Number(req.params.id))
-      stmts.deleteCat.run(Number(req.params.id))
-      res.json({ ok: true })
+      const id = Number(req.params.id)
+      const affected = stmts.clearTodoCat.all(id)
+      stmts.deleteCat.run(id)
+      res.json({ ok: true, affectedTodoIds: affected.map(r => r.id) })
     } catch (err) {
       res.status(500).json({ error: (err as Error).message })
     }

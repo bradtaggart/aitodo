@@ -40,4 +40,4 @@ export const createCategory = (name: string, color: string) =>
   })
 
 export const eraseCategory = (id: number) =>
-  request<{ ok: true }>(`/api/categories/${id}`, { method: 'DELETE' })
+  request<{ ok: true; affectedTodoIds: number[] }>(`/api/categories/${id}`, { method: 'DELETE' })

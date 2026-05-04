@@ -78,8 +78,10 @@ export function useTodoStore() {
 
     deleteCategory: (id: number) =>
       withPending(async () => {
-        await api.eraseCategory(id)
-        await Promise.all([loadCategories(), loadTodos()])
+        const { affectedTodoIds } = await api.eraseCategory(id)
+        const affected = new Set(affectedTodoIds)
+        setTodos(prev => prev.map(t => affected.has(t.id) ? { ...t, category_id: null } : t))
+        await loadCategories()
       }),
 
     createTemplate: (todo_id: number, config: SetRecurrenceConfig) =>
