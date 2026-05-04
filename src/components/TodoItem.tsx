@@ -1,10 +1,54 @@
-import { useState, useRef, useEffect, createContext, useContext } from 'react'
+import { useState, useRef, useEffect, useCallback, createContext, useContext } from 'react'
 import { Plus, Trash2, ChevronRight, ChevronDown, Flag } from 'lucide-react'
 import type { Todo, Category } from '../types'
 import type { RecurringTemplate, SetRecurrenceConfig } from '../recurrence'
 import { DueDateChip } from './DueDateChip'
 import { DescriptionField } from './DescriptionField'
 import { RecurrencePicker } from './RecurrencePicker'
+
+function useTitleEdit(currentText: string, onSave: (text: string) => void) {
+  const [isEditing, setIsEditing] = useState(false)
+  const [draft, setDraft] = useState(currentText)
+  const cancelledRef = useRef(false)
+
+  useEffect(() => {
+    if (!isEditing) setDraft(currentText)
+  }, [currentText, isEditing])
+
+  const start = useCallback(() => {
+    setDraft(currentText)
+    setIsEditing(true)
+  }, [currentText])
+
+  const handleBlur = useCallback(() => {
+    if (cancelledRef.current) { cancelledRef.current = false; return }
+    const trimmed = draft.trim()
+    if (trimmed && trimmed !== currentText) onSave(trimmed)
+    else setDraft(currentText)
+    setIsEditing(false)
+  }, [draft, currentText, onSave])
+
+  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Escape') {
+      e.preventDefault()
+      cancelledRef.current = true
+      setDraft(currentText)
+      setIsEditing(false)
+    }
+    if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur() }
+  }, [currentText])
+
+  return {
+    isEditing,
+    start,
+    inputProps: {
+      value: draft,
+      onChange: (e: React.ChangeEvent<HTMLInputElement>) => setDraft(e.target.value),
+      onBlur: handleBlur,
+      onKeyDown: handleKeyDown,
+    },
+  }
+}
 
 interface TodoListContextValue {
   categories: Category[]
@@ -52,45 +96,13 @@ export function TodoItem({ todo }: { todo: Todo }) {
     () => localStorage.getItem(`collapsed:${todo.id}`) === 'true'
   )
   const [input, setInput] = useState('')
-  const [editingTitle, setEditingTitle] = useState(false)
-  const [titleDraft, setTitleDraft] = useState(todo.text)
-  const titleCancelledRef = useRef(false)
-
-  useEffect(() => {
-    if (!editingTitle) setTitleDraft(todo.text)
-  }, [todo.text, editingTitle])
+  const { isEditing: editingTitle, start: startEditingTitle, inputProps: titleInputProps } =
+    useTitleEdit(todo.text, text => onChangeTitle(todo.id, text))
 
   const CYCLE: Record<string, 'high' | 'medium' | 'low' | null> = { high: 'medium', medium: 'low', low: null }
   function cyclePriority() {
     const next = todo.priority ? CYCLE[todo.priority] : 'high'
     onChangePriority(todo.id, next)
-  }
-
-  function handleTitleBlur() {
-    if (titleCancelledRef.current) {
-      titleCancelledRef.current = false
-      return
-    }
-    const trimmed = titleDraft.trim()
-    if (trimmed && trimmed !== todo.text) {
-      onChangeTitle(todo.id, trimmed)
-    } else {
-      setTitleDraft(todo.text)
-    }
-    setEditingTitle(false)
-  }
-
-  function handleTitleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (e.key === 'Escape') {
-      e.preventDefault()
-      titleCancelledRef.current = true
-      setTitleDraft(todo.text)
-      setEditingTitle(false)
-    }
-    if (e.key === 'Enter') {
-      e.preventDefault()
-      e.currentTarget.blur()
-    }
   }
 
   const cat = categories.find(c => c.id === todo.category_id) ?? null
@@ -137,16 +149,13 @@ export function TodoItem({ todo }: { todo: Todo }) {
             <input
               className="todo-label-input"
               autoFocus
-              value={titleDraft}
-              onChange={e => setTitleDraft(e.target.value)}
-              onBlur={handleTitleBlur}
-              onKeyDown={handleTitleKeyDown}
               aria-label="Edit task title"
+              {...titleInputProps}
             />
           ) : (
             <button
               className="todo-label"
-              onClick={() => { setTitleDraft(todo.text); setEditingTitle(true) }}
+              onClick={startEditingTitle}
               aria-label="Edit task title"
             >
               {todo.text}
