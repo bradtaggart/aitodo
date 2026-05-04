@@ -4,10 +4,7 @@ import { TodoItem, TodoListProvider } from './components/TodoItem'
 import { CalendarPanel } from './components/CalendarPanel'
 import { SortDropdown } from './components/SortDropdown'
 import type { SortBy } from './components/SortDropdown'
-import { useTodos } from './hooks/useTodos'
-import { useCategories } from './hooks/useCategories'
-import { useTemplates } from './hooks/useTemplates'
-import type { SetRecurrenceConfig } from './api'
+import { useTodoStore } from './hooks/useTodoStore'
 import type { Todo, Category, RecurringTemplate } from './types'
 import { toDateStr } from './utils/dates'
 import './App.css'
@@ -68,10 +65,11 @@ export default function App() {
 
   const {
     todos,
+    categories,
+    templates,
     pending,
-    error: todoError,
-    clearError: clearTodoError,
-    load: loadTodos,
+    error,
+    clearError,
     subtasksOf,
     addTodo,
     addChild,
@@ -82,26 +80,11 @@ export default function App() {
     changeDescription,
     changePriority,
     changeTitle,
-  } = useTodos()
-
-  const {
-    categories,
-    error: catError,
-    clearError: clearCatError,
     addCategory,
-    deleteCategory: deleteCategoryBase,
-  } = useCategories()
-
-  const {
-    templates,
-    error: templateError,
-    clearError: clearTemplateError,
+    deleteCategory,
     createTemplate,
     deleteTemplate,
-  } = useTemplates()
-
-  const error = todoError ?? catError ?? templateError
-  const clearError = () => { clearTodoError(); clearCatError(); clearTemplateError() }
+  } = useTodoStore()
 
   async function handleAddTodo(e: React.SubmitEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -121,19 +104,8 @@ export default function App() {
   }
 
   async function handleDeleteCategory(id: number) {
-    await deleteCategoryBase(id)
-    await loadTodos()
+    await deleteCategory(id)
     if (activeCat === id) setActiveCat(null)
-  }
-
-  async function handleSetRecurrence(todoId: number, config: SetRecurrenceConfig) {
-    await createTemplate(todoId, config)
-    await loadTodos()
-  }
-
-  async function handleRemoveRecurrence(templateId: number) {
-    await deleteTemplate(templateId)
-    await loadTodos()
   }
 
   const topLevel = todos
@@ -220,8 +192,8 @@ export default function App() {
           onChangeDescription: changeDescription,
           onChangePriority: changePriority,
           onChangeTitle: changeTitle,
-          onSetRecurrence: handleSetRecurrence,
-          onRemoveRecurrence: handleRemoveRecurrence,
+          onSetRecurrence: createTemplate,
+          onRemoveRecurrence: deleteTemplate,
         }}>
           <ul className="todo-list">
             {topLevel.map(todo => (
