@@ -3,7 +3,15 @@ import type { Todo, Category } from '../types'
 import * as api from '../api'
 import type { RecurringTemplate, SetRecurrenceConfig } from '../recurrence'
 import { fetchTemplates, createTemplate, eraseTemplate } from '../recurrence'
-import { applyTodoPatch, clearCategoryFromTodos, loadTodoData } from '../todo-workflow'
+
+function applyTodoPatch(todos: Todo[], id: number, patch: Partial<Todo>): Todo[] {
+  return todos.map(todo => todo.id === id ? { ...todo, ...patch } : todo)
+}
+
+function clearCategoryFromTodos(todos: Todo[], affectedTodoIds: number[]): Todo[] {
+  const affected = new Set(affectedTodoIds)
+  return todos.map(todo => affected.has(todo.id) ? { ...todo, category_id: null } : todo)
+}
 
 export function useTodoStore() {
   const [todos, setTodos] = useState<Todo[]>([])
@@ -17,14 +25,10 @@ export function useTodoStore() {
   const loadTemplates = useCallback(() => fetchTemplates().then(setTemplates), [])
 
   useEffect(() => {
-    loadTodoData({
-      loadTodos: api.fetchTodos,
-      loadCategories: api.fetchCategories,
-      loadTemplates: fetchTemplates,
-    }).then(data => {
-      setTodos(data.todos)
-      setCategories(data.categories)
-      setTemplates(data.templates)
+    Promise.all([api.fetchTodos(), api.fetchCategories(), fetchTemplates()]).then(([todos, categories, templates]) => {
+      setTodos(todos)
+      setCategories(categories)
+      setTemplates(templates)
     }).catch(err => {
       setError((err as Error).message)
     })
