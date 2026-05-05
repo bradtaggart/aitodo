@@ -1,4 +1,4 @@
-export type SortBy = 'none' | 'due_date' | 'category' | 'priority'
+import type { SortBy } from '../task-list'
 
 interface Props {
   value: SortBy

@@ -3,40 +3,11 @@ import { CategoryBar } from './components/CategoryBar'
 import { TodoItem, TodoListProvider } from './components/TodoItem'
 import { CalendarPanel } from './components/CalendarPanel'
 import { SortDropdown } from './components/SortDropdown'
-import type { SortBy } from './components/SortDropdown'
 import { useTodoStore } from './hooks/useTodoStore'
 import { fetchMe, patchMe } from './api'
-import type { Todo, Category } from './types'
-import { isProjectedDate } from './recurrence'
-import { buildTree } from './utils/tree'
-import { toDateStr } from './utils/dates'
+import type { SortBy } from './task-list'
+import { deriveTaskList } from './task-list'
 import './App.css'
-
-const PRIORITY_ORDER = { high: 0, medium: 1, low: 2 }
-
-function sortTodos(a: Todo, b: Todo, sortBy: SortBy, categories: Category[]): number {
-  if (sortBy === 'priority') {
-    const pa = a.priority ? PRIORITY_ORDER[a.priority] : 3
-    const pb = b.priority ? PRIORITY_ORDER[b.priority] : 3
-    return pa - pb
-  }
-  if (sortBy === 'due_date') {
-    if (!a.due_date && !b.due_date) return b.id - a.id
-    if (!a.due_date) return 1
-    if (!b.due_date) return -1
-    return a.due_date < b.due_date ? -1 : a.due_date > b.due_date ? 1 : 0
-  }
-  if (sortBy === 'category') {
-    const nameOf = (t: Todo) => categories.find(c => c.id === t.category_id)?.name ?? ''
-    const na = nameOf(a)
-    const nb = nameOf(b)
-    if (!na && !nb) return b.id - a.id
-    if (!na) return 1
-    if (!nb) return -1
-    return na.localeCompare(nb)
-  }
-  return b.id - a.id
-}
 
 export default function App() {
   const [input, setInput] = useState('')
@@ -101,23 +72,14 @@ export default function App() {
     if (activeCat === id) setActiveCat(null)
   }
 
-  const { topLevel: allTopLevel, subtasksOf } = useMemo(() => buildTree(todos), [todos])
-
-  const topLevel = allTopLevel
-    .filter(t => {
-      if (activeCat !== null && t.category_id !== activeCat) return false
-      if (selectedDate !== null) {
-        const selectedStr = toDateStr(selectedDate)
-        if (t.due_date === selectedStr) return true
-        if (t.template_id && !t.done && t.due_date) {
-          const tmpl = templates.find(tmpl => tmpl.id === t.template_id)
-          if (tmpl && isProjectedDate(tmpl, t.due_date, selectedStr)) return true
-        }
-        return false
-      }
-      return true
-    })
-    .sort((a, b) => sortTodos(a, b, sortBy, categories))
+  const { topLevel, subtasksOf } = useMemo(() => deriveTaskList({
+    todos,
+    categories,
+    templates,
+    activeCategoryId: activeCat,
+    selectedDate,
+    sortBy,
+  }), [todos, categories, templates, activeCat, selectedDate, sortBy])
 
   const activeCatObj = categories.find(c => c.id === activeCat) ?? null
 
