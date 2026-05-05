@@ -3,6 +3,7 @@ import type { Todo, Category } from '../types'
 import * as api from '../api'
 import type { RecurringTemplate, SetRecurrenceConfig } from '../recurrence'
 import { fetchTemplates, createTemplate, eraseTemplate } from '../recurrence'
+import { applyTodoPatch, clearCategoryFromTodos, loadTodoData } from '../todo-workflow'
 
 export function useTodoStore() {
   const [todos, setTodos] = useState<Todo[]>([])
@@ -16,10 +17,18 @@ export function useTodoStore() {
   const loadTemplates = useCallback(() => fetchTemplates().then(setTemplates), [])
 
   useEffect(() => {
-    Promise.all([loadTodos(), loadCategories(), loadTemplates()]).catch(err => {
+    loadTodoData({
+      loadTodos: api.fetchTodos,
+      loadCategories: api.fetchCategories,
+      loadTemplates: fetchTemplates,
+    }).then(data => {
+      setTodos(data.todos)
+      setCategories(data.categories)
+      setTemplates(data.templates)
+    }).catch(err => {
       setError((err as Error).message)
     })
-  }, [loadTodos, loadCategories, loadTemplates])
+  }, [])
 
   async function withPending(fn: () => Promise<void>) {
     setPending(true)
@@ -53,19 +62,19 @@ export function useTodoStore() {
       withPending(async () => { await api.eraseTodo(id); await loadTodos() }),
 
     changeCategory: (id: number, category_id: number | null) =>
-      withPending(async () => { await api.patchTodo(id, { category_id }); setTodos(prev => prev.map(t => t.id === id ? { ...t, category_id } : t)) }),
+      withPending(async () => { await api.patchTodo(id, { category_id }); setTodos(prev => applyTodoPatch(prev, id, { category_id })) }),
 
     changeDueDate: (id: number, due_date: string | null) =>
-      withPending(async () => { await api.patchTodo(id, { due_date }); setTodos(prev => prev.map(t => t.id === id ? { ...t, due_date } : t)) }),
+      withPending(async () => { await api.patchTodo(id, { due_date }); setTodos(prev => applyTodoPatch(prev, id, { due_date })) }),
 
     changeDescription: (id: number, description: string | null) =>
-      withPending(async () => { await api.patchTodo(id, { description }); setTodos(prev => prev.map(t => t.id === id ? { ...t, description } : t)) }),
+      withPending(async () => { await api.patchTodo(id, { description }); setTodos(prev => applyTodoPatch(prev, id, { description })) }),
 
     changePriority: (id: number, priority: 'high' | 'medium' | 'low' | null) =>
-      withPending(async () => { await api.patchTodo(id, { priority }); setTodos(prev => prev.map(t => t.id === id ? { ...t, priority } : t)) }),
+      withPending(async () => { await api.patchTodo(id, { priority }); setTodos(prev => applyTodoPatch(prev, id, { priority })) }),
 
     changeTitle: (id: number, text: string) =>
-      withPending(async () => { await api.patchTodo(id, { text }); setTodos(prev => prev.map(t => t.id === id ? { ...t, text } : t)) }),
+      withPending(async () => { await api.patchTodo(id, { text }); setTodos(prev => applyTodoPatch(prev, id, { text })) }),
 
     addCategory: (name: string, color: string) =>
       withPending(async () => { await api.createCategory(name, color); await loadCategories() }),
@@ -73,8 +82,7 @@ export function useTodoStore() {
     deleteCategory: (id: number) =>
       withPending(async () => {
         const { affectedTodoIds } = await api.eraseCategory(id)
-        const affected = new Set(affectedTodoIds)
-        setTodos(prev => prev.map(t => affected.has(t.id) ? { ...t, category_id: null } : t))
+        setTodos(prev => clearCategoryFromTodos(prev, affectedTodoIds))
         await loadCategories()
       }),
 

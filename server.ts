@@ -6,21 +6,8 @@ import { join, dirname, resolve } from 'path'
 import {
   createRecurringTaskOperations,
   RecurringTaskOperationError,
-  type TemplateRow,
-  type TodoRow,
 } from './server/recurring-task-operations.ts'
-
-interface CategoryRow {
-  id: number
-  name: string
-  color: string
-}
-
-interface UserRow {
-  id: number
-  name: string
-  preferences: string
-}
+import { createTaskPersistence, TaskPersistenceError, type TodoRow } from './server/task-persistence.ts'
 
 export function initDb(db: Database.Database) {
   db.pragma('foreign_keys = ON')
@@ -90,25 +77,8 @@ export function initDb(db: Database.Database) {
 
 
 export function createApp(db: Database.Database) {
-  const recurringTasks = createRecurringTaskOperations(db)
-  const stmts = {
-    getAll:        db.prepare<[], TodoRow>('SELECT * FROM todos ORDER BY id'),
-    getById:       db.prepare<[number], { id: number }>('SELECT id FROM todos WHERE id = ?'),
-    getCatById:    db.prepare<[number], { id: number }>('SELECT id FROM categories WHERE id = ?'),
-    insert:        db.prepare<[string, number | null, string, number | null], Database.RunResult>('INSERT INTO todos (text, parent_id, created_at, category_id) VALUES (?, ?, ?, ?)'),
-    updateCat:     db.prepare<[number | null, number], Database.RunResult>('UPDATE todos SET category_id = ? WHERE id = ?'),
-    getAllCats:    db.prepare<[], CategoryRow>('SELECT * FROM categories ORDER BY id'),
-    insertCat:    db.prepare<[string, string], Database.RunResult>('INSERT INTO categories (name, color) VALUES (?, ?)'),
-    deleteCat:    db.prepare<[number], Database.RunResult>('DELETE FROM categories WHERE id = ?'),
-    clearTodoCat: db.prepare<[number], { id: number }>('UPDATE todos SET category_id = NULL WHERE category_id = ? RETURNING id'),
-    updateDueDate: db.prepare<[string | null, number], Database.RunResult>('UPDATE todos SET due_date = ? WHERE id = ?'),
-    updateDescription: db.prepare<[string | null, number], Database.RunResult>('UPDATE todos SET description = ? WHERE id = ?'),
-    getAllTemplates:     db.prepare<[], TemplateRow>('SELECT * FROM recurring_templates ORDER BY id'),
-    updatePriority: db.prepare<[string | null, number], Database.RunResult>('UPDATE todos SET priority = ? WHERE id = ?'),
-    updateText: db.prepare<[string, number], Database.RunResult>('UPDATE todos SET text = ? WHERE id = ?'),
-    getMe: db.prepare<[], UserRow>('SELECT * FROM users WHERE id = 1'),
-    updateMe: db.prepare<[string], Database.RunResult>('UPDATE users SET preferences = ? WHERE id = 1'),
-  }
+  const persistence = createTaskPersistence(db)
+  const recurringTasks = createRecurringTaskOperations(persistence)
 
   const app = express()
   if (process.env.NODE_ENV !== 'production') {
@@ -118,7 +88,7 @@ export function createApp(db: Database.Database) {
 
   app.get('/api/todos', (_req: Request, res: Response) => {
     try {
-      res.json(stmts.getAll.all())
+      res.json(persistence.listTodos())
     } catch (err) {
       res.status(500).json({ error: (err as Error).message })
     }
@@ -127,21 +97,11 @@ export function createApp(db: Database.Database) {
   app.post('/api/todos', (req: Request, res: Response) => {
     try {
       const { text, parent_id = null, category_id = null } = req.body as { text: string; parent_id?: number | null; category_id?: number | null }
-      if (!text || typeof text !== 'string' || !text.trim()) {
-        return res.status(400).json({ error: 'text is required' })
-      }
-      if (parent_id !== null) {
-        const parent = stmts.getById.get(parent_id)
-        if (!parent) return res.status(400).json({ error: 'parent not found' })
-      }
-      if (category_id !== null) {
-        const cat = stmts.getCatById.get(category_id)
-        if (!cat) return res.status(400).json({ error: 'category not found' })
-      }
-      const created_at = new Date().toISOString()
-      const result = stmts.insert.run(text.trim(), parent_id, created_at, category_id)
-      res.json({ id: result.lastInsertRowid, text: text.trim(), done: 0, completed_at: null, created_at, parent_id, category_id, due_date: null, description: null })
+      res.json(persistence.createTodo({ text, parent_id, category_id }))
     } catch (err) {
+      if (err instanceof TaskPersistenceError) {
+        return res.status(err.status).json({ error: err.message })
+      }
       res.status(500).json({ error: (err as Error).message })
     }
   })
@@ -159,30 +119,30 @@ export function createApp(db: Database.Database) {
         spawned = recurringTasks.completeTodo(Number(req.params.id), done).spawned
       }
       if ('category_id' in req.body) {
-        stmts.updateCat.run(category_id ?? null, Number(req.params.id))
+        persistence.updateCategory(Number(req.params.id), category_id ?? null)
       }
       if ('due_date' in req.body) {
         if (due_date !== null && due_date !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(due_date)) {
           return res.status(400).json({ error: 'due_date must be YYYY-MM-DD or null' })
         }
-        stmts.updateDueDate.run(due_date ?? null, Number(req.params.id))
+        persistence.updateDueDate(Number(req.params.id), due_date ?? null)
       }
       if ('description' in req.body) {
-        stmts.updateDescription.run(description ?? null, Number(req.params.id))
+        persistence.updateDescription(Number(req.params.id), description ?? null)
       }
       if ('priority' in req.body) {
         const { priority } = req.body as { priority?: 'high' | 'medium' | 'low' | null }
         if (priority !== null && priority !== undefined && !['high', 'medium', 'low'].includes(priority)) {
           return res.status(400).json({ error: 'priority must be high, medium, low, or null' })
         }
-        stmts.updatePriority.run(priority ?? null, Number(req.params.id))
+        persistence.updatePriority(Number(req.params.id), priority ?? null)
       }
       if ('text' in req.body) {
         const { text } = req.body as { text?: string }
         if (!text || typeof text !== 'string' || !text.trim()) {
           return res.status(400).json({ error: 'text must be a non-empty string' })
         }
-        stmts.updateText.run(text.trim(), Number(req.params.id))
+        persistence.updateText(Number(req.params.id), text.trim())
       }
       res.json({ ok: true, spawned: spawned ? { ...spawned, done: !!spawned.done } : null })
     } catch (err) {
@@ -201,7 +161,7 @@ export function createApp(db: Database.Database) {
 
   app.get('/api/categories', (_req: Request, res: Response) => {
     try {
-      res.json(stmts.getAllCats.all())
+      res.json(persistence.listCategories())
     } catch (err) {
       res.status(500).json({ error: (err as Error).message })
     }
@@ -210,25 +170,18 @@ export function createApp(db: Database.Database) {
   app.post('/api/categories', (req: Request, res: Response) => {
     try {
       const { name, color } = req.body as { name: string; color: string }
-      if (!name || typeof name !== 'string' || !name.trim()) {
-        return res.status(400).json({ error: 'name is required' })
-      }
-      if (!color || typeof color !== 'string') {
-        return res.status(400).json({ error: 'color is required' })
-      }
-      const result = stmts.insertCat.run(name.trim(), color)
-      res.json({ id: result.lastInsertRowid, name: name.trim(), color })
+      res.json(persistence.createCategory(name, color))
     } catch (err) {
+      if (err instanceof TaskPersistenceError) {
+        return res.status(err.status).json({ error: err.message })
+      }
       res.status(500).json({ error: (err as Error).message })
     }
   })
 
   app.delete('/api/categories/:id', (req: Request, res: Response) => {
     try {
-      const id = Number(req.params.id)
-      const affected = stmts.clearTodoCat.all(id)
-      stmts.deleteCat.run(id)
-      res.json({ ok: true, affectedTodoIds: affected.map(r => r.id) })
+      res.json(persistence.deleteCategory(Number(req.params.id)))
     } catch (err) {
       res.status(500).json({ error: (err as Error).message })
     }
@@ -236,7 +189,7 @@ export function createApp(db: Database.Database) {
 
   app.get('/api/templates', (_req: Request, res: Response) => {
     try {
-      res.json(stmts.getAllTemplates.all())
+      res.json(persistence.listTemplates())
     } catch (err) {
       res.status(500).json({ error: (err as Error).message })
     }
@@ -270,7 +223,7 @@ export function createApp(db: Database.Database) {
 
   app.get('/api/me', (_req: Request, res: Response) => {
     try {
-      const user = stmts.getMe.get()!
+      const user = persistence.getMe()!
       res.json({ ...user, preferences: JSON.parse(user.preferences) })
     } catch (err) {
       res.status(500).json({ error: (err as Error).message })
@@ -279,10 +232,10 @@ export function createApp(db: Database.Database) {
 
   app.patch('/api/me', (req: Request, res: Response) => {
     try {
-      const user = stmts.getMe.get()!
+      const user = persistence.getMe()!
       const current = JSON.parse(user.preferences)
       const updated = { ...current, ...(req.body as { preferences?: object }).preferences }
-      stmts.updateMe.run(JSON.stringify(updated))
+      persistence.updateMe(JSON.stringify(updated))
       res.json({ ok: true })
     } catch (err) {
       res.status(500).json({ error: (err as Error).message })

@@ -1,54 +1,11 @@
-import { useState, useRef, useEffect, useCallback, createContext, useContext } from 'react'
+import { createContext, useContext } from 'react'
 import { Plus, Trash2, ChevronRight, ChevronDown, Flag } from 'lucide-react'
 import type { Todo, Category } from '../types'
 import type { RecurringTemplate, SetRecurrenceConfig } from '../recurrence'
 import { DueDateChip } from './DueDateChip'
 import { DescriptionField } from './DescriptionField'
 import { RecurrencePicker } from './RecurrencePicker'
-
-function useTitleEdit(currentText: string, onSave: (text: string) => void) {
-  const [isEditing, setIsEditing] = useState(false)
-  const [draft, setDraft] = useState(currentText)
-  const cancelledRef = useRef(false)
-
-  useEffect(() => {
-    if (!isEditing) setDraft(currentText)
-  }, [currentText, isEditing])
-
-  const start = useCallback(() => {
-    setDraft(currentText)
-    setIsEditing(true)
-  }, [currentText])
-
-  const handleBlur = useCallback(() => {
-    if (cancelledRef.current) { cancelledRef.current = false; return }
-    const trimmed = draft.trim()
-    if (trimmed && trimmed !== currentText) onSave(trimmed)
-    else setDraft(currentText)
-    setIsEditing(false)
-  }, [draft, currentText, onSave])
-
-  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Escape') {
-      e.preventDefault()
-      cancelledRef.current = true
-      setDraft(currentText)
-      setIsEditing(false)
-    }
-    if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur() }
-  }, [currentText])
-
-  return {
-    isEditing,
-    start,
-    inputProps: {
-      value: draft,
-      onChange: (e: React.ChangeEvent<HTMLInputElement>) => setDraft(e.target.value),
-      onBlur: handleBlur,
-      onKeyDown: handleKeyDown,
-    },
-  }
-}
+import { nextPriority, useChildTaskForm, usePersistentCollapse, useTitleEdit } from './todo-item-interactions'
 
 interface TodoListContextValue {
   categories: Category[]
@@ -91,40 +48,18 @@ export function TodoItem({ todo }: { todo: Todo }) {
 
   const subtasks = subtasksOf(todo.id)
 
-  const [adding, setAdding] = useState(false)
-  const [collapsed, setCollapsed] = useState(
-    () => localStorage.getItem(`collapsed:${todo.id}`) === 'true'
-  )
-  const [input, setInput] = useState('')
+  const { collapsed, toggleCollapse } = usePersistentCollapse(todo.id)
+  const childForm = useChildTaskForm(text => onAddChild(text, todo.id))
   const { isEditing: editingTitle, start: startEditingTitle, inputProps: titleInputProps } =
     useTitleEdit(todo.text, text => onChangeTitle(todo.id, text))
 
-  const CYCLE: Record<string, 'high' | 'medium' | 'low' | null> = { high: 'medium', medium: 'low', low: null }
   function cyclePriority() {
-    const next = todo.priority ? CYCLE[todo.priority] : 'high'
-    onChangePriority(todo.id, next)
+    onChangePriority(todo.id, nextPriority(todo.priority))
   }
 
   const cat = categories.find(c => c.id === todo.category_id) ?? null
   const template = templates.find(t => t.id === todo.template_id) ?? null
   const isExpanded = forceExpanded || !collapsed
-
-  async function handleAddChild(e: React.SubmitEvent<HTMLFormElement>) {
-    e.preventDefault()
-    const text = input.trim()
-    if (!text) return
-    await onAddChild(text, todo.id)
-    setInput('')
-    setAdding(false)
-  }
-
-  function toggleCollapse() {
-    setCollapsed(v => {
-      const next = !v
-      localStorage.setItem(`collapsed:${todo.id}`, String(next))
-      return next
-    })
-  }
 
   return (
     <li>
@@ -194,7 +129,7 @@ export function TodoItem({ todo }: { todo: Todo }) {
           </button>
         )}
         {!todo.done && (
-          <button className="add-child" onClick={() => setAdding(v => !v)} aria-label="Add subtask"><Plus size={14} /></button>
+          <button className="add-child" onClick={() => childForm.setAdding(v => !v)} aria-label="Add subtask"><Plus size={14} /></button>
         )}
         <button className="delete" onClick={() => onDelete(todo.id)} aria-label="Delete task"><Trash2 size={14} /></button>
       </div>
@@ -210,17 +145,17 @@ export function TodoItem({ todo }: { todo: Todo }) {
           onRemove={async () => { if (template) await onRemoveRecurrence(template.id) }}
         />
       )}
-      {adding && (
-        <form onSubmit={handleAddChild} className="child-form">
+      {childForm.adding && (
+        <form onSubmit={childForm.handleSubmit} className="child-form">
           <input
             autoFocus
-            value={input}
-            onChange={e => setInput(e.target.value)}
+            value={childForm.input}
+            onChange={e => childForm.setInput(e.target.value)}
             placeholder="Add subtask..."
             aria-label="New subtask"
           />
           <button type="submit">Add</button>
-          <button type="button" onClick={() => setAdding(false)}>Cancel</button>
+          <button type="button" onClick={() => childForm.setAdding(false)}>Cancel</button>
         </form>
       )}
       {subtasks.length > 0 && isExpanded && (

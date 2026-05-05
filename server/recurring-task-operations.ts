@@ -1,32 +1,11 @@
-import Database from 'better-sqlite3'
 import { advanceByRecurrence } from '../src/utils/recurrence-math.ts'
-
-export interface TodoRow {
-  id: number
-  text: string
-  done: number
-  completed_at: string | null
-  created_at: string
-  parent_id: number | null
-  category_id: number | null
-  due_date: string | null
-  description: string | null
-  template_id: number | null
-  priority: string | null
-}
-
-export interface TemplateRow {
-  id: number
-  text: string
-  category_id: number | null
-  description: string | null
-  recurrence_type: string
-  day_mask: number | null
-  interval_days: number | null
-  day_of_month: number | null
-}
-
-export type TodoResponseRow = Omit<TodoRow, 'done'> & { done: boolean }
+import {
+  createTaskPersistence,
+  type TaskPersistence,
+  type TemplateRow,
+  type TodoResponseRow,
+  type TodoRow,
+} from './task-persistence.ts'
 
 export interface SetRecurrenceConfig {
   recurrence_type?: string
@@ -40,54 +19,43 @@ export class RecurringTaskOperationError extends Error {
   }
 }
 
-export function createRecurringTaskOperations(db: Database.Database) {
-  const stmts = {
-    getChildren: db.prepare<[number], { id: number }>('SELECT id FROM todos WHERE parent_id = ?'),
-    updateDone: db.prepare<[number, string | null, number], Database.RunResult>('UPDATE todos SET done = ?, completed_at = ? WHERE id = ?'),
-    deleteTodo: db.prepare<[number], Database.RunResult>('DELETE FROM todos WHERE id = ?'),
-    getTodo: db.prepare<[number], TodoRow>('SELECT * FROM todos WHERE id = ?'),
-    getTemplateById: db.prepare<[number], TemplateRow>('SELECT * FROM recurring_templates WHERE id = ?'),
-    insertTemplate: db.prepare<[string, number | null, string | null, string, number | null, number | null, number | null], Database.RunResult>(
-      'INSERT INTO recurring_templates (text, category_id, description, recurrence_type, day_mask, interval_days, day_of_month) VALUES (?, ?, ?, ?, ?, ?, ?)',
-    ),
-    deleteTemplate: db.prepare<[number], Database.RunResult>('DELETE FROM recurring_templates WHERE id = ?'),
-    getUndoneTodosByTemplate: db.prepare<[number], { id: number }>('SELECT id FROM todos WHERE template_id = ? AND done = 0'),
-    nullifyTemplateRef: db.prepare<[number], Database.RunResult>('UPDATE todos SET template_id = NULL WHERE template_id = ?'),
-    updateTodoTemplate: db.prepare<[number, number], Database.RunResult>('UPDATE todos SET template_id = ? WHERE id = ?'),
-    spawnTodo: db.prepare<[string, number | null, string | null, string, string, number], Database.RunResult>(
-      'INSERT INTO todos (text, category_id, description, created_at, due_date, template_id) VALUES (?, ?, ?, ?, ?, ?)',
-    ),
-  }
+export function createRecurringTaskOperations(persistence: TaskPersistence): ReturnType<typeof buildRecurringTaskOperations>
+export function createRecurringTaskOperations(db: Parameters<typeof createTaskPersistence>[0]): ReturnType<typeof buildRecurringTaskOperations>
+export function createRecurringTaskOperations(input: TaskPersistence | Parameters<typeof createTaskPersistence>[0]) {
+  const persistence = 'listTodos' in input ? input : createTaskPersistence(input)
+  return buildRecurringTaskOperations(persistence)
+}
 
+function buildRecurringTaskOperations(persistence: TaskPersistence) {
   function deleteTree(id: number) {
-    for (const child of stmts.getChildren.all(id)) deleteTree(child.id)
-    stmts.deleteTodo.run(id)
+    for (const child of persistence.getChildren(id)) deleteTree(child.id)
+    persistence.deleteTodoRow(id)
   }
 
   return {
     completeTodo(id: number, done: boolean): { spawned: TodoRow | null } {
       const completedAt = done ? new Date().toISOString() : null
 
-      const spawned = db.transaction((todoId: number) => {
+      const spawned = persistence.db.transaction((todoId: number) => {
         function updateTree(nodeId: number) {
-          stmts.updateDone.run(done ? 1 : 0, completedAt, nodeId)
+          persistence.updateDone(nodeId, done, completedAt)
           if (done) {
-            for (const child of stmts.getChildren.all(nodeId)) updateTree(child.id)
+            for (const child of persistence.getChildren(nodeId)) updateTree(child.id)
           }
         }
         updateTree(todoId)
 
         if (!done) return null
 
-        const todo = stmts.getTodo.get(todoId)
+        const todo = persistence.getTodo(todoId)
         if (!todo?.template_id || !todo.due_date) return null
 
-        const template = stmts.getTemplateById.get(todo.template_id)
+        const template = persistence.getTemplate(todo.template_id)
         if (!template) return null
 
         const nextDue = advanceByRecurrence(template, todo.due_date)
         const createdAt = new Date().toISOString()
-        const spawnResult = stmts.spawnTodo.run(
+        const spawnedId = persistence.spawnTodo(
           template.text,
           template.category_id,
           template.description,
@@ -95,7 +63,7 @@ export function createRecurringTaskOperations(db: Database.Database) {
           nextDue,
           template.id,
         )
-        return stmts.getTodo.get(Number(spawnResult.lastInsertRowid)) ?? null
+        return persistence.getTodo(spawnedId)
       })(id)
 
       return { spawned }
@@ -115,7 +83,7 @@ export function createRecurringTaskOperations(db: Database.Database) {
         throw new RecurringTaskOperationError('interval_days required and >= 1 for custom')
       }
 
-      const todo = stmts.getTodo.get(todoId)
+      const todo = persistence.getTodo(todoId)
       if (!todo) throw new RecurringTaskOperationError('todo not found')
       if (!todo.due_date) throw new RecurringTaskOperationError('todo must have a due_date')
 
@@ -123,8 +91,8 @@ export function createRecurringTaskOperations(db: Database.Database) {
       const maskValue = recurrence_type === 'weekly' ? (day_mask ?? null) : null
       const intervalValue = recurrence_type === 'custom' ? (interval_days ?? null) : null
 
-      return db.transaction(() => {
-        const templateResult = stmts.insertTemplate.run(
+      return persistence.db.transaction(() => {
+        const templateId = persistence.insertTemplate(
           todo.text,
           todo.category_id,
           todo.description,
@@ -133,37 +101,36 @@ export function createRecurringTaskOperations(db: Database.Database) {
           intervalValue,
           dayOfMonth,
         )
-        const templateId = Number(templateResult.lastInsertRowid)
-        stmts.updateTodoTemplate.run(templateId, todoId)
-        const template = stmts.getTemplateById.get(templateId)!
-        const updatedTodo = stmts.getTodo.get(todoId)!
+        persistence.updateTodoTemplate(templateId, todoId)
+        const template = persistence.getTemplate(templateId)!
+        const updatedTodo = persistence.getTodo(todoId)!
         return { template, todo: { ...updatedTodo, done: !!updatedTodo.done } }
       })()
     },
 
     deleteTodo(id: number): void {
-      db.transaction((todoId: number) => {
-        const todo = stmts.getTodo.get(todoId)
+      persistence.db.transaction((todoId: number) => {
+        const todo = persistence.getTodo(todoId)
         const templateId = todo?.template_id
 
         deleteTree(todoId)
 
         if (templateId && !todo!.done) {
-          for (const { id: siblingId } of stmts.getUndoneTodosByTemplate.all(templateId)) {
+          for (const { id: siblingId } of persistence.getUndoneTodosByTemplate(templateId)) {
             deleteTree(siblingId)
           }
-          stmts.nullifyTemplateRef.run(templateId)
-          stmts.deleteTemplate.run(templateId)
+          persistence.nullifyTemplateRef(templateId)
+          persistence.deleteTemplateRow(templateId)
         }
       })(id)
     },
 
     deleteTemplate(id: number): void {
       try {
-        db.pragma('foreign_keys = OFF')
-        stmts.deleteTemplate.run(id)
+        persistence.db.pragma('foreign_keys = OFF')
+        persistence.deleteTemplateRow(id)
       } finally {
-        db.pragma('foreign_keys = ON')
+        persistence.db.pragma('foreign_keys = ON')
       }
     },
   }
