@@ -15,7 +15,11 @@
       "Bash(npm test *)",
       "Bash(pkill -f \"tsx server.ts\")",
       "Bash(pkill -f \"concurrently\")",
-      "mcp__Claude_Preview__preview_start"
+      "mcp__Claude_Preview__preview_start",
+      "Bash(kill 68846)",
+      "Bash(curl -s http://localhost:3001/api/me)",
+      "Bash(curl -s -X PATCH http://localhost:3001/api/me -H 'Content-Type: application/json' -d '{\"preferences\":{\"sort_by\":\"priority\"}}')",
+      "Bash(npx tsc *)"
     ]
   }
 }
