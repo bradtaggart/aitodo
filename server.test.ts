@@ -156,10 +156,10 @@ describe('PATCH /api/todos/:id', () => {
     expect(childTodo.done).toBe(1)
   })
 
-  it('returns ok for PATCH on non-existent id', async () => {
+  it('returns 404 for PATCH on non-existent id', async () => {
     const res = await request.patch('/api/todos/999').send({ done: true })
-    expect(res.status).toBe(200)
-    expect(res.body.ok).toBe(true)
+    expect(res.status).toBe(404)
+    expect(res.body.error).toBe('todo not found')
   })
 
   it('updates category_id', async () => {

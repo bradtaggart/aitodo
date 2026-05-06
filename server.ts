@@ -7,7 +7,8 @@ import {
   createRecurringTaskOperations,
   RecurringTaskOperationError,
 } from './server/recurring-task-operations.ts'
-import { createTaskPersistence, TaskPersistenceError, type TodoRow } from './server/task-persistence.ts'
+import { createTaskMutations, TaskMutationError, type TaskPatch } from './server/task-mutations.ts'
+import { createTaskPersistence, TaskPersistenceError } from './server/task-persistence.ts'
 
 export function initDb(db: Database.Database) {
   db.pragma('foreign_keys = ON')
@@ -79,6 +80,7 @@ export function initDb(db: Database.Database) {
 export function createApp(db: Database.Database) {
   const persistence = createTaskPersistence(db)
   const recurringTasks = createRecurringTaskOperations(persistence)
+  const taskMutations = createTaskMutations(persistence)
 
   const app = express()
   if (process.env.NODE_ENV !== 'production') {
@@ -108,44 +110,11 @@ export function createApp(db: Database.Database) {
 
   app.patch('/api/todos/:id', (req: Request, res: Response) => {
     try {
-      const { done, category_id, due_date, description } = req.body as {
-        done?: boolean
-        category_id?: number | null
-        due_date?: string | null
-        description?: string | null
-      }
-      let spawned: TodoRow | null = null
-      if (done !== undefined) {
-        spawned = recurringTasks.completeTodo(Number(req.params.id), done).spawned
-      }
-      if ('category_id' in req.body) {
-        persistence.updateCategory(Number(req.params.id), category_id ?? null)
-      }
-      if ('due_date' in req.body) {
-        if (due_date !== null && due_date !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(due_date)) {
-          return res.status(400).json({ error: 'due_date must be YYYY-MM-DD or null' })
-        }
-        persistence.updateDueDate(Number(req.params.id), due_date ?? null)
-      }
-      if ('description' in req.body) {
-        persistence.updateDescription(Number(req.params.id), description ?? null)
-      }
-      if ('priority' in req.body) {
-        const { priority } = req.body as { priority?: 'high' | 'medium' | 'low' | null }
-        if (priority !== null && priority !== undefined && !['high', 'medium', 'low'].includes(priority)) {
-          return res.status(400).json({ error: 'priority must be high, medium, low, or null' })
-        }
-        persistence.updatePriority(Number(req.params.id), priority ?? null)
-      }
-      if ('text' in req.body) {
-        const { text } = req.body as { text?: string }
-        if (!text || typeof text !== 'string' || !text.trim()) {
-          return res.status(400).json({ error: 'text must be a non-empty string' })
-        }
-        persistence.updateText(Number(req.params.id), text.trim())
-      }
-      res.json({ ok: true, spawned: spawned ? { ...spawned, done: !!spawned.done } : null })
+      res.json(taskMutations.applyPatch(Number(req.params.id), req.body as TaskPatch))
     } catch (err) {
+      if (err instanceof TaskMutationError) {
+        return res.status(err.status).json({ error: err.message })
+      }
       res.status(500).json({ error: (err as Error).message })
     }
   })
