@@ -4,12 +4,13 @@ import supertest from 'supertest'
 import { createApp, initDb } from './server'
 
 let db: Database.Database
-let request: ReturnType<typeof supertest>
+let request: ReturnType<typeof supertest.agent>
 
-beforeEach(() => {
+beforeEach(async () => {
   db = new Database(':memory:')
   initDb(db)
-  request = supertest(createApp(db))
+  request = supertest.agent(createApp(db))
+  await request.post('/api/auth/register').send({ email: 'test@test.com', password: 'password123', name: 'Test' })
 })
 
 afterEach(() => {
@@ -245,10 +246,9 @@ describe('DELETE /api/todos/:id', () => {
     expect(todos.body).toHaveLength(0)
   })
 
-  it('returns ok for DELETE on non-existent id', async () => {
+  it('returns 404 for DELETE on non-existent id', async () => {
     const res = await request.delete('/api/todos/999')
-    expect(res.status).toBe(200)
-    expect(res.body.ok).toBe(true)
+    expect(res.status).toBe(404)
   })
 
   it('cascades delete to all children', async () => {
@@ -315,10 +315,9 @@ describe('POST /api/categories', () => {
 })
 
 describe('DELETE /api/categories/:id', () => {
-  it('returns ok for DELETE on non-existent id', async () => {
+  it('returns 404 for DELETE on non-existent id', async () => {
     const res = await request.delete('/api/categories/999')
-    expect(res.status).toBe(200)
-    expect(res.body.ok).toBe(true)
+    expect(res.status).toBe(404)
   })
 
   it('deletes a category', async () => {
@@ -408,9 +407,9 @@ describe('POST /api/templates', () => {
     expect(res.status).toBe(400)
   })
 
-  it('returns 400 when todo does not exist', async () => {
+  it('returns 404 when todo does not exist', async () => {
     const res = await request.post('/api/templates').send({ todo_id: 999, recurrence_type: 'daily' })
-    expect(res.status).toBe(400)
+    expect(res.status).toBe(404)
   })
 
   it('returns 400 when todo has no due_date', async () => {
@@ -531,9 +530,8 @@ describe('DELETE /api/templates/:id', () => {
     expect(todo.template_id).toBe(templateId)
   })
 
-  it('returns ok for non-existent id', async () => {
+  it('returns 404 for non-existent id', async () => {
     const res = await request.delete('/api/templates/999')
-    expect(res.status).toBe(200)
-    expect(res.body.ok).toBe(true)
+    expect(res.status).toBe(404)
   })
 })

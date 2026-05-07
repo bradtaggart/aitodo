@@ -1,7 +1,12 @@
 import type { Todo, Category, User } from './types'
 
+export class AuthError extends Error {
+  constructor() { super('Unauthorized') }
+}
+
 export async function request<T>(url: string, options?: RequestInit): Promise<T> {
-  const res = await fetch(url, options)
+  const res = await fetch(url, { ...options, credentials: 'include' })
+  if (res.status === 401) throw new AuthError()
   if (!res.ok) {
     const body = await res.json().catch(() => ({})) as { error?: string }
     throw new Error(body.error ?? `Request failed: ${res.status}`)
@@ -51,3 +56,20 @@ export const patchMe = (preferences: User['preferences']) =>
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ preferences }),
   })
+
+export const login = (email: string, password: string) =>
+  request<User>('/api/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  })
+
+export const register = (email: string, password: string, name: string) =>
+  request<User>('/api/auth/register', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password, name }),
+  })
+
+export const logout = () =>
+  request<{ ok: true }>('/api/auth/logout', { method: 'POST' })

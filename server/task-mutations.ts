@@ -20,8 +20,9 @@ export function createTaskMutations(persistence: TaskPersistence) {
   const recurringTasks = createRecurringTaskOperations(persistence)
 
   return {
-    applyPatch(id: number, patch: TaskPatch): { ok: true; spawned: TodoResponseRow | null } {
-      if (!persistence.getTodo(id)) {
+    applyPatch(id: number, patch: TaskPatch, userId: number): { ok: true; spawned: TodoResponseRow | null } {
+      const todo = persistence.getTodo(id)
+      if (!todo || todo.user_id !== userId) {
         throw new TaskMutationError('todo not found', 404)
       }
 

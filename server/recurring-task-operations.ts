@@ -62,6 +62,7 @@ function buildRecurringTaskOperations(persistence: TaskPersistence) {
           createdAt,
           nextDue,
           template.id,
+          todo.user_id,
         )
         return persistence.getTodo(spawnedId)
       })(id)
@@ -69,7 +70,7 @@ function buildRecurringTaskOperations(persistence: TaskPersistence) {
       return { spawned }
     },
 
-    setRecurrence(todoId: number, config: SetRecurrenceConfig): { template: TemplateRow; todo: TodoResponseRow } {
+    setRecurrence(todoId: number, config: SetRecurrenceConfig, userId: number): { template: TemplateRow; todo: TodoResponseRow } {
       const { recurrence_type, day_mask, interval_days } = config
 
       const validTypes = ['daily', 'weekly', 'monthly', 'custom']
@@ -84,7 +85,7 @@ function buildRecurringTaskOperations(persistence: TaskPersistence) {
       }
 
       const todo = persistence.getTodo(todoId)
-      if (!todo) throw new RecurringTaskOperationError('todo not found')
+      if (!todo || todo.user_id !== userId) throw new RecurringTaskOperationError('todo not found', 404)
       if (!todo.due_date) throw new RecurringTaskOperationError('todo must have a due_date')
 
       const dayOfMonth = recurrence_type === 'monthly' ? Number(todo.due_date.slice(8, 10)) : null
@@ -100,6 +101,7 @@ function buildRecurringTaskOperations(persistence: TaskPersistence) {
           maskValue,
           intervalValue,
           dayOfMonth,
+          todo.user_id,
         )
         persistence.updateTodoTemplate(templateId, todoId)
         const template = persistence.getTemplate(templateId)!
@@ -108,9 +110,10 @@ function buildRecurringTaskOperations(persistence: TaskPersistence) {
       })()
     },
 
-    deleteTodo(id: number): void {
+    deleteTodo(id: number, userId: number): void {
       persistence.db.transaction((todoId: number) => {
         const todo = persistence.getTodo(todoId)
+        if (!todo || todo.user_id !== userId) throw new RecurringTaskOperationError('todo not found', 404)
         const templateId = todo?.template_id
 
         deleteTree(todoId)
@@ -125,7 +128,9 @@ function buildRecurringTaskOperations(persistence: TaskPersistence) {
       })(id)
     },
 
-    deleteTemplate(id: number): void {
+    deleteTemplate(id: number, userId: number): void {
+      const template = persistence.getTemplate(id)
+      if (!template || template.user_id !== userId) throw new RecurringTaskOperationError('template not found', 404)
       try {
         persistence.db.pragma('foreign_keys = OFF')
         persistence.deleteTemplateRow(id)

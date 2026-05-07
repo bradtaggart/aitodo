@@ -1,6 +1,8 @@
 import express, { Request, Response } from 'express'
 import Database from 'better-sqlite3'
 import cors from 'cors'
+import cookieParser from 'cookie-parser'
+import bcrypt from 'bcryptjs'
 import { fileURLToPath } from 'url'
 import { join, dirname, resolve } from 'path'
 import {
@@ -9,6 +11,7 @@ import {
 } from './server/recurring-task-operations.ts'
 import { createTaskMutations, TaskMutationError, type TaskPatch } from './server/task-mutations.ts'
 import { createTaskPersistence, TaskPersistenceError } from './server/task-persistence.ts'
+import { requireAuth, setSessionCookie, clearSessionCookie } from './server/auth.ts'
 
 export function initDb(db: Database.Database) {
   db.pragma('foreign_keys = ON')
@@ -70,9 +73,31 @@ export function initDb(db: Database.Database) {
     )
   `)
 
+  const userCols = (db.prepare("PRAGMA table_info(users)").all() as { name: string }[]).map(c => c.name)
+  if (!userCols.includes('email')) db.exec('ALTER TABLE users ADD COLUMN email TEXT')
+  if (!userCols.includes('password_hash')) db.exec('ALTER TABLE users ADD COLUMN password_hash TEXT')
+  db.exec('CREATE UNIQUE INDEX IF NOT EXISTS users_email_unique ON users (email) WHERE email IS NOT NULL')
+
   const userCount = (db.prepare('SELECT COUNT(*) as count FROM users').get() as { count: number }).count
   if (userCount === 0) {
     db.prepare('INSERT INTO users (name, preferences) VALUES (?, ?)').run('default', '{}')
+  }
+
+  const catCols = (db.prepare("PRAGMA table_info(categories)").all() as { name: string }[]).map(c => c.name)
+  if (!catCols.includes('user_id')) {
+    db.exec('ALTER TABLE categories ADD COLUMN user_id INTEGER REFERENCES users(id)')
+    db.exec('UPDATE categories SET user_id = 1 WHERE user_id IS NULL')
+  }
+
+  const templateCols = (db.prepare("PRAGMA table_info(recurring_templates)").all() as { name: string }[]).map(c => c.name)
+  if (!templateCols.includes('user_id')) {
+    db.exec('ALTER TABLE recurring_templates ADD COLUMN user_id INTEGER REFERENCES users(id)')
+    db.exec('UPDATE recurring_templates SET user_id = 1 WHERE user_id IS NULL')
+  }
+
+  if (!todoCols.includes('user_id')) {
+    db.exec('ALTER TABLE todos ADD COLUMN user_id INTEGER REFERENCES users(id)')
+    db.exec('UPDATE todos SET user_id = 1 WHERE user_id IS NULL')
   }
 }
 
@@ -84,13 +109,65 @@ export function createApp(db: Database.Database) {
 
   const app = express()
   if (process.env.NODE_ENV !== 'production') {
-    app.use(cors({ origin: 'http://localhost:5173' }))
+    app.use(cors({ origin: 'http://localhost:5173', credentials: true }))
   }
+  app.use(cookieParser())
   app.use(express.json())
 
-  app.get('/api/todos', (_req: Request, res: Response) => {
+  // Auth routes (no requireAuth)
+  app.post('/api/auth/register', async (req: Request, res: Response) => {
     try {
-      res.json(persistence.listTodos())
+      const { email, password, name } = req.body as { email?: string; password?: string; name?: string }
+      if (!email || !password || !name) {
+        return res.status(400).json({ error: 'email, password, and name are required' })
+      }
+      if (password.length < 8) {
+        return res.status(400).json({ error: 'password must be at least 8 characters' })
+      }
+      if (persistence.getUserByEmail(email)) {
+        return res.status(409).json({ error: 'email already in use' })
+      }
+      const passwordHash = await bcrypt.hash(password, 12)
+      const user = persistence.createUser(email, passwordHash, name)
+      setSessionCookie(res, user.id)
+      res.json({ id: user.id, email: user.email, name: user.name, preferences: JSON.parse(user.preferences) })
+    } catch (err) {
+      res.status(500).json({ error: (err as Error).message })
+    }
+  })
+
+  app.post('/api/auth/login', async (req: Request, res: Response) => {
+    try {
+      const { email, password } = req.body as { email?: string; password?: string }
+      if (!email || !password) {
+        return res.status(400).json({ error: 'email and password are required' })
+      }
+      const user = persistence.getUserByEmail(email)
+      if (!user || !user.password_hash) {
+        return res.status(401).json({ error: 'Invalid email or password' })
+      }
+      const valid = await bcrypt.compare(password, user.password_hash)
+      if (!valid) {
+        return res.status(401).json({ error: 'Invalid email or password' })
+      }
+      setSessionCookie(res, user.id)
+      res.json({ id: user.id, email: user.email, name: user.name, preferences: JSON.parse(user.preferences) })
+    } catch (err) {
+      res.status(500).json({ error: (err as Error).message })
+    }
+  })
+
+  app.post('/api/auth/logout', (_req: Request, res: Response) => {
+    clearSessionCookie(res)
+    res.json({ ok: true })
+  })
+
+  // All routes below require authentication
+  app.use('/api', requireAuth)
+
+  app.get('/api/todos', (req: Request, res: Response) => {
+    try {
+      res.json(persistence.listTodos(req.userId))
     } catch (err) {
       res.status(500).json({ error: (err as Error).message })
     }
@@ -99,7 +176,7 @@ export function createApp(db: Database.Database) {
   app.post('/api/todos', (req: Request, res: Response) => {
     try {
       const { text, parent_id = null, category_id = null } = req.body as { text: string; parent_id?: number | null; category_id?: number | null }
-      res.json(persistence.createTodo({ text, parent_id, category_id }))
+      res.json(persistence.createTodo({ text, parent_id, category_id, user_id: req.userId }))
     } catch (err) {
       if (err instanceof TaskPersistenceError) {
         return res.status(err.status).json({ error: err.message })
@@ -110,7 +187,7 @@ export function createApp(db: Database.Database) {
 
   app.patch('/api/todos/:id', (req: Request, res: Response) => {
     try {
-      res.json(taskMutations.applyPatch(Number(req.params.id), req.body as TaskPatch))
+      res.json(taskMutations.applyPatch(Number(req.params.id), req.body as TaskPatch, req.userId))
     } catch (err) {
       if (err instanceof TaskMutationError) {
         return res.status(err.status).json({ error: err.message })
@@ -121,16 +198,19 @@ export function createApp(db: Database.Database) {
 
   app.delete('/api/todos/:id', (req: Request, res: Response) => {
     try {
-      recurringTasks.deleteTodo(Number(req.params.id))
+      recurringTasks.deleteTodo(Number(req.params.id), req.userId)
       res.json({ ok: true })
     } catch (err) {
+      if (err instanceof RecurringTaskOperationError) {
+        return res.status(err.status).json({ error: err.message })
+      }
       res.status(500).json({ error: (err as Error).message })
     }
   })
 
-  app.get('/api/categories', (_req: Request, res: Response) => {
+  app.get('/api/categories', (req: Request, res: Response) => {
     try {
-      res.json(persistence.listCategories())
+      res.json(persistence.listCategories(req.userId))
     } catch (err) {
       res.status(500).json({ error: (err as Error).message })
     }
@@ -139,7 +219,7 @@ export function createApp(db: Database.Database) {
   app.post('/api/categories', (req: Request, res: Response) => {
     try {
       const { name, color } = req.body as { name: string; color: string }
-      res.json(persistence.createCategory(name, color))
+      res.json(persistence.createCategory(name, color, req.userId))
     } catch (err) {
       if (err instanceof TaskPersistenceError) {
         return res.status(err.status).json({ error: err.message })
@@ -150,15 +230,19 @@ export function createApp(db: Database.Database) {
 
   app.delete('/api/categories/:id', (req: Request, res: Response) => {
     try {
+      const cat = persistence.getCategory(Number(req.params.id))
+      if (!cat || cat.user_id !== req.userId) {
+        return res.status(404).json({ error: 'category not found' })
+      }
       res.json(persistence.deleteCategory(Number(req.params.id)))
     } catch (err) {
       res.status(500).json({ error: (err as Error).message })
     }
   })
 
-  app.get('/api/templates', (_req: Request, res: Response) => {
+  app.get('/api/templates', (req: Request, res: Response) => {
     try {
-      res.json(persistence.listTemplates())
+      res.json(persistence.listTemplates(req.userId))
     } catch (err) {
       res.status(500).json({ error: (err as Error).message })
     }
@@ -170,7 +254,7 @@ export function createApp(db: Database.Database) {
         req.body as { todo_id?: number; recurrence_type?: string; day_mask?: number; interval_days?: number }
 
       if (!todo_id) return res.status(400).json({ error: 'todo_id is required' })
-      const result = recurringTasks.setRecurrence(Number(todo_id), { recurrence_type, day_mask, interval_days })
+      const result = recurringTasks.setRecurrence(Number(todo_id), { recurrence_type, day_mask, interval_days }, req.userId)
 
       res.json(result)
     } catch (err) {
@@ -183,17 +267,20 @@ export function createApp(db: Database.Database) {
 
   app.delete('/api/templates/:id', (req: Request, res: Response) => {
     try {
-      recurringTasks.deleteTemplate(Number(req.params.id))
+      recurringTasks.deleteTemplate(Number(req.params.id), req.userId)
       res.json({ ok: true })
     } catch (err) {
+      if (err instanceof RecurringTaskOperationError) {
+        return res.status(err.status).json({ error: err.message })
+      }
       res.status(500).json({ error: (err as Error).message })
     }
   })
 
-  app.get('/api/me', (_req: Request, res: Response) => {
+  app.get('/api/me', (req: Request, res: Response) => {
     try {
-      const user = persistence.getMe()!
-      res.json({ ...user, preferences: JSON.parse(user.preferences) })
+      const user = persistence.getMe(req.userId)!
+      res.json({ id: user.id, email: user.email, name: user.name, preferences: JSON.parse(user.preferences) })
     } catch (err) {
       res.status(500).json({ error: (err as Error).message })
     }
@@ -201,10 +288,10 @@ export function createApp(db: Database.Database) {
 
   app.patch('/api/me', (req: Request, res: Response) => {
     try {
-      const user = persistence.getMe()!
+      const user = persistence.getMe(req.userId)!
       const current = JSON.parse(user.preferences)
       const updated = { ...current, ...(req.body as { preferences?: object }).preferences }
-      persistence.updateMe(JSON.stringify(updated))
+      persistence.updateMe(req.userId, JSON.stringify(updated))
       res.json({ ok: true })
     } catch (err) {
       res.status(500).json({ error: (err as Error).message })

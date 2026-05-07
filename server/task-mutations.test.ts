@@ -21,11 +21,11 @@ afterEach(() => {
 })
 
 function createTodo(text = 'task') {
-  return persistence.createTodo({ text })
+  return persistence.createTodo({ text, user_id: 1 })
 }
 
 function createChild(text: string, parentId: number) {
-  return persistence.createTodo({ text, parent_id: parentId })
+  return persistence.createTodo({ text, parent_id: parentId, user_id: 1 })
 }
 
 function setDueDate(id: number, dueDate: string) {
@@ -35,7 +35,7 @@ function setDueDate(id: number, dueDate: string) {
 describe('task mutations', () => {
   it('throws 404 when patching a missing todo', () => {
     try {
-      mutations.applyPatch(999, { done: true })
+      mutations.applyPatch(999, { done: true }, 1)
       throw new Error('expected missing todo to throw')
     } catch (err) {
       expect(err).toBeInstanceOf(TaskMutationError)
@@ -49,9 +49,9 @@ describe('task mutations', () => {
     const child = createChild('child', parent.id)
     setDueDate(parent.id, '2026-04-28')
     const recurringTasks = createRecurringTaskOperations(persistence)
-    const { template } = recurringTasks.setRecurrence(parent.id, { recurrence_type: 'weekly', day_mask: 2 })
+    const { template } = recurringTasks.setRecurrence(parent.id, { recurrence_type: 'weekly', day_mask: 2 }, 1)
 
-    const result = mutations.applyPatch(parent.id, { done: true })
+    const result = mutations.applyPatch(parent.id, { done: true }, 1)
 
     expect(persistence.getTodo(parent.id)?.done).toBe(1)
     expect(persistence.getTodo(child.id)?.done).toBe(1)
@@ -63,9 +63,9 @@ describe('task mutations', () => {
   it('clears only the target completion state when done=false and does not spawn', () => {
     const parent = createTodo('parent')
     const child = createChild('child', parent.id)
-    mutations.applyPatch(parent.id, { done: true })
+    mutations.applyPatch(parent.id, { done: true }, 1)
 
-    const result = mutations.applyPatch(parent.id, { done: false })
+    const result = mutations.applyPatch(parent.id, { done: false }, 1)
 
     expect(persistence.getTodo(parent.id)?.done).toBe(0)
     expect(persistence.getTodo(parent.id)?.completed_at).toBeNull()
@@ -74,7 +74,7 @@ describe('task mutations', () => {
   })
 
   it('applies valid task field mutations and trims text', () => {
-    const category = persistence.createCategory('Work', '#3366ff')
+    const category = persistence.createCategory('Work', '#3366ff', 1)
     const todo = createTodo('original')
 
     const result = mutations.applyPatch(todo.id, {
@@ -83,7 +83,7 @@ describe('task mutations', () => {
       description: 'details',
       priority: 'high',
       text: '  updated  ',
-    })
+    }, 1)
 
     const updated = persistence.getTodo(todo.id)
     expect(result).toEqual({ ok: true, spawned: null })
@@ -97,17 +97,17 @@ describe('task mutations', () => {
   it('rejects invalid due_date, priority, and blank text with existing messages', () => {
     const todo = createTodo()
 
-    expect(() => mutations.applyPatch(todo.id, { due_date: '05/01/2026' }))
+    expect(() => mutations.applyPatch(todo.id, { due_date: '05/01/2026' }, 1))
       .toThrow('due_date must be YYYY-MM-DD or null')
-    expect(() => mutations.applyPatch(todo.id, { priority: 'urgent' as never }))
+    expect(() => mutations.applyPatch(todo.id, { priority: 'urgent' as never }, 1))
       .toThrow('priority must be high, medium, low, or null')
-    expect(() => mutations.applyPatch(todo.id, { text: '   ' }))
+    expect(() => mutations.applyPatch(todo.id, { text: '   ' }, 1))
       .toThrow('text must be a non-empty string')
   })
 
   it('allows an empty patch on an existing todo', () => {
     const todo = createTodo()
 
-    expect(mutations.applyPatch(todo.id, {})).toEqual({ ok: true, spawned: null })
+    expect(mutations.applyPatch(todo.id, {}, 1)).toEqual({ ok: true, spawned: null })
   })
 })

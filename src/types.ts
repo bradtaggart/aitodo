@@ -20,6 +20,7 @@ export interface Category {
 
 export interface User {
   id: number
+  email: string
   name: string
   preferences: {
     sort_by?: string

@@ -3,30 +3,21 @@ import { CategoryBar } from './components/CategoryBar'
 import { TodoItem, TodoListProvider } from './components/TodoItem'
 import { CalendarPanel } from './components/CalendarPanel'
 import { SortDropdown } from './components/SortDropdown'
+import { AuthForm } from './components/AuthForm'
 import { useTodoStore } from './hooks/useTodoStore'
-import { fetchMe, patchMe } from './api'
+import { useAuth } from './hooks/useAuth'
+import { patchMe } from './api'
+import type { User } from './types'
 import type { SortBy } from './task-list'
 import { deriveTaskList } from './task-list'
 import './App.css'
 
-export default function App() {
+function MainApp({ user, onLogout }: { user: User; onLogout: () => void }) {
   const [input, setInput] = useState('')
   const [activeCat, setActiveCat] = useState<number | null>(null)
   const [selectedDate, setSelectedDate] = useState<Date | null>(null)
   const [calendarOpen, setCalendarOpen] = useState(true)
-  const [sortBy, setSortBy] = useState<SortBy>('none')
-
-  useEffect(() => {
-    fetchMe().then(user => {
-      const saved = user.preferences.sort_by
-      if (saved) setSortBy(saved as SortBy)
-    }).catch(() => {})
-  }, [])
-
-  function handleSortChange(value: SortBy) {
-    setSortBy(value)
-    patchMe({ sort_by: value }).catch(() => {})
-  }
+  const [sortBy, setSortBy] = useState<SortBy>(() => (user.preferences.sort_by as SortBy) ?? 'none')
 
   const {
     todos,
@@ -50,7 +41,17 @@ export default function App() {
     deleteTemplate,
   } = useTodoStore()
 
-  async function handleAddTodo(e: React.SubmitEvent<HTMLFormElement>) {
+  useEffect(() => {
+    const saved = user.preferences.sort_by
+    if (saved) setSortBy(saved as SortBy)
+  }, [user.id])
+
+  function handleSortChange(value: SortBy) {
+    setSortBy(value)
+    patchMe({ sort_by: value }).catch(() => {})
+  }
+
+  async function handleAddTodo(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     const text = input.trim()
     if (!text) return
@@ -94,7 +95,10 @@ export default function App() {
         onToggle={() => setCalendarOpen(v => !v)}
       />
       <main className="main-panel">
-        <h1>What's Next...</h1>
+        <div className="app-header">
+          <h1>What's Next, {user.name.charAt(0).toUpperCase() + user.name.slice(1)}...</h1>
+          <button className="logout-btn" onClick={onLogout}>Sign out</button>
+        </div>
         {error && (
           <p className="error">
             {error}
@@ -160,4 +164,15 @@ export default function App() {
       </main>
     </div>
   )
+}
+
+export default function App() {
+  const { state: authState, login, register, logout } = useAuth()
+
+  if (authState.status === 'loading') return null
+  if (authState.status === 'unauthenticated') {
+    return <AuthForm onLogin={login} onRegister={register} />
+  }
+
+  return <MainApp user={authState.user} onLogout={logout} />
 }

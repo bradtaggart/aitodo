@@ -16,9 +16,9 @@ afterEach(() => {
 
 function createTodo(text = 'standup') {
   const createdAt = new Date().toISOString()
-  const result = db.prepare<[string, string], Database.RunResult>(
-    'INSERT INTO todos (text, created_at) VALUES (?, ?)',
-  ).run(text, createdAt)
+  const result = db.prepare<[string, string, number], Database.RunResult>(
+    'INSERT INTO todos (text, created_at, user_id) VALUES (?, ?, ?)',
+  ).run(text, createdAt, 1)
   return Number(result.lastInsertRowid)
 }
 
@@ -32,7 +32,7 @@ describe('recurring task operations', () => {
     setDueDate(todoId, '2026-04-28')
     const ops = createRecurringTaskOperations(db)
 
-    const result = ops.setRecurrence(todoId, { recurrence_type: 'daily' })
+    const result = ops.setRecurrence(todoId, { recurrence_type: 'daily' }, 1)
 
     expect(result.template.recurrence_type).toBe('daily')
     expect(result.template.text).toBe('standup')
@@ -44,7 +44,7 @@ describe('recurring task operations', () => {
     const todoId = createTodo()
     setDueDate(todoId, '2026-04-28')
     const ops = createRecurringTaskOperations(db)
-    const { template } = ops.setRecurrence(todoId, { recurrence_type: 'weekly', day_mask: 2 })
+    const { template } = ops.setRecurrence(todoId, { recurrence_type: 'weekly', day_mask: 2 }, 1)
 
     const result = ops.completeTodo(todoId, true)
 
@@ -66,7 +66,7 @@ describe('recurring task operations', () => {
     const todoId = createTodo()
     setDueDate(todoId, '2026-04-28')
     const ops = createRecurringTaskOperations(db)
-    ops.setRecurrence(todoId, { recurrence_type: 'daily' })
+    ops.setRecurrence(todoId, { recurrence_type: 'daily' }, 1)
     ops.completeTodo(todoId, true)
     const countBefore = db.prepare('SELECT COUNT(*) as count FROM todos').get() as { count: number }
 
@@ -81,10 +81,10 @@ describe('recurring task operations', () => {
     const todoId = createTodo()
     setDueDate(todoId, '2026-04-28')
     const ops = createRecurringTaskOperations(db)
-    const { template } = ops.setRecurrence(todoId, { recurrence_type: 'daily' })
+    const { template } = ops.setRecurrence(todoId, { recurrence_type: 'daily' }, 1)
     const spawned = ops.completeTodo(todoId, true).spawned!
 
-    ops.deleteTodo(spawned.id)
+    ops.deleteTodo(spawned.id, 1)
 
     const remainingTodos = db.prepare('SELECT * FROM todos ORDER BY id').all()
     const remainingTemplates = db.prepare('SELECT * FROM recurring_templates').all()
@@ -97,9 +97,9 @@ describe('recurring task operations', () => {
     const todoId = createTodo()
     setDueDate(todoId, '2026-04-28')
     const ops = createRecurringTaskOperations(db)
-    const { template } = ops.setRecurrence(todoId, { recurrence_type: 'daily' })
+    const { template } = ops.setRecurrence(todoId, { recurrence_type: 'daily' }, 1)
 
-    ops.deleteTemplate(template.id)
+    ops.deleteTemplate(template.id, 1)
 
     const todo = db.prepare<[number]>('SELECT template_id FROM todos WHERE id = ?').get(todoId) as { template_id: number | null }
     const templateCount = db.prepare('SELECT COUNT(*) as count FROM recurring_templates').get() as { count: number }
