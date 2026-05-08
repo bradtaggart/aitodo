@@ -200,7 +200,114 @@ export function createTaskPersistence(db: Database.Database) {
       const result = stmts.insertUser.run(email, passwordHash, name)
       return { id: Number(result.lastInsertRowid), email, password_hash: passwordHash, name, preferences: '{}' }
     },
+
+    forAccount(accountId: number) {
+      function getTodo(id: number): TodoRow | null {
+        const todo = stmts.getTodo.get(id)
+        return todo?.user_id === accountId ? todo : null
+      }
+
+      function getCategory(id: number): CategoryRow | null {
+        const category = stmts.getCategory.get(id)
+        return category?.user_id === accountId ? category : null
+      }
+
+      function getTemplate(id: number): TemplateRow | null {
+        const template = stmts.getTemplate.get(id)
+        return template?.user_id === accountId ? template : null
+      }
+
+      return {
+        db,
+        accountId,
+        listTodos: () => stmts.listTodos.all(accountId),
+        getTodo,
+        createTodo({ text, parent_id = null, category_id = null }: { text: string; parent_id?: number | null; category_id?: number | null }) {
+          if (!text || typeof text !== 'string' || !text.trim()) {
+            throw new TaskPersistenceError('text is required')
+          }
+          if (parent_id !== null && !getTodo(parent_id)) {
+            throw new TaskPersistenceError('parent not found')
+          }
+          if (category_id !== null && !getCategory(category_id)) {
+            throw new TaskPersistenceError('category not found')
+          }
+
+          const created_at = new Date().toISOString()
+          const trimmed = text.trim()
+          const result = stmts.insertTodo.run(trimmed, parent_id, created_at, category_id, accountId)
+          return {
+            id: Number(result.lastInsertRowid),
+            text: trimmed,
+            done: 0,
+            completed_at: null,
+            created_at,
+            parent_id,
+            category_id,
+            due_date: null,
+            description: null,
+            template_id: null,
+            priority: null,
+            user_id: accountId,
+          }
+        },
+        listCategories: () => stmts.listCategories.all(accountId),
+        getCategory,
+        createCategory(name: string, color: string): CategoryRow {
+          if (!name || typeof name !== 'string' || !name.trim()) {
+            throw new TaskPersistenceError('name is required')
+          }
+          if (!color || typeof color !== 'string') {
+            throw new TaskPersistenceError('color is required')
+          }
+
+          const trimmed = name.trim()
+          const result = stmts.insertCategory.run(trimmed, color, accountId)
+          return { id: Number(result.lastInsertRowid), name: trimmed, color, user_id: accountId }
+        },
+        deleteCategory(id: number): { ok: true; affectedTodoIds: number[] } {
+          if (!getCategory(id)) throw new TaskPersistenceError('category not found', 404)
+          const affected = stmts.clearTodoCategory.all(id)
+          stmts.deleteCategory.run(id)
+          return { ok: true, affectedTodoIds: affected.map(row => row.id) }
+        },
+        listTemplates: () => stmts.listTemplates.all(accountId),
+        getTemplate,
+        getChildren: (id: number) => stmts.getChildren.all(id).filter(child => getTodo(child.id)),
+        updateDone: (id: number, done: boolean, completedAt: string | null) => stmts.updateDone.run(done ? 1 : 0, completedAt, id),
+        updateCategory(id: number, categoryId: number | null) {
+          if (!getTodo(id)) throw new TaskPersistenceError('todo not found', 404)
+          if (categoryId !== null && !getCategory(categoryId)) throw new TaskPersistenceError('category not found')
+          return stmts.updateCategory.run(categoryId, id)
+        },
+        updateDueDate: (id: number, dueDate: string | null) => stmts.updateDueDate.run(dueDate, id),
+        updateDescription: (id: number, description: string | null) => stmts.updateDescription.run(description, id),
+        updatePriority: (id: number, priority: string | null) => stmts.updatePriority.run(priority, id),
+        updateText: (id: number, text: string) => stmts.updateText.run(text, id),
+        deleteTodoRow: (id: number) => stmts.deleteTodo.run(id),
+        insertTemplate(
+          text: string,
+          categoryId: number | null,
+          description: string | null,
+          recurrenceType: string,
+          dayMask: number | null,
+          intervalDays: number | null,
+          dayOfMonth: number | null,
+        ): number {
+          if (categoryId !== null && !getCategory(categoryId)) throw new TaskPersistenceError('category not found')
+          return Number(stmts.insertTemplate.run(text, categoryId, description, recurrenceType, dayMask, intervalDays, dayOfMonth, accountId).lastInsertRowid)
+        },
+        deleteTemplateRow: (id: number) => stmts.deleteTemplate.run(id),
+        getUndoneTodosByTemplate: (id: number) => stmts.getUndoneTodosByTemplate.all(id).filter(todo => getTodo(todo.id)),
+        nullifyTemplateRef: (id: number) => stmts.nullifyTemplateRef.run(id),
+        updateTodoTemplate: (templateId: number, todoId: number) => stmts.updateTodoTemplate.run(templateId, todoId),
+        spawnTodo(text: string, categoryId: number | null, description: string | null, createdAt: string, dueDate: string, templateId: number): number {
+          return Number(stmts.spawnTodo.run(text, categoryId, description, createdAt, dueDate, templateId, accountId).lastInsertRowid)
+        },
+      }
+    },
   }
 }
 
 export type TaskPersistence = ReturnType<typeof createTaskPersistence>
+export type AccountTaskWorkspace = ReturnType<TaskPersistence['forAccount']>

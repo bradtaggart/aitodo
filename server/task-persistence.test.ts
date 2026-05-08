@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import Database from 'better-sqlite3'
-import { initDb } from '../server'
+import { initDb } from './database'
 import { createTaskPersistence, TaskPersistenceError } from './task-persistence'
 
 let db: Database.Database
@@ -46,5 +46,27 @@ describe('task persistence', () => {
     expect(result.affectedTodoIds).toEqual([todo.id])
     expect(persistence.getTodo(todo.id)?.category_id).toBeNull()
     expect(persistence.listCategories(1)).toEqual([])
+  })
+
+  it('scopes task, category, and template operations to one account workspace', () => {
+    const persistence = createTaskPersistence(db)
+    persistence.createUser('owner@test.com', 'hash', 'Owner')
+    const other = persistence.createUser('other@test.com', 'hash', 'Other')
+    const account = persistence.forAccount(1)
+    const otherAccount = persistence.forAccount(other.id)
+
+    const category = account.createCategory('Work', '#3366ff')
+    const todo = account.createTodo({ text: 'Task', category_id: category.id })
+    persistence.updateDueDate(todo.id, '2026-05-01')
+    const templateId = persistence.insertTemplate('Task', null, null, 'daily', null, null, null, 1)
+
+    expect(account.getTodo(todo.id)?.id).toBe(todo.id)
+    expect(account.getCategory(category.id)?.id).toBe(category.id)
+    expect(account.getTemplate(templateId)?.id).toBe(templateId)
+    expect(otherAccount.getTodo(todo.id)).toBeNull()
+    expect(otherAccount.getCategory(category.id)).toBeNull()
+    expect(otherAccount.getTemplate(templateId)).toBeNull()
+    expect(() => otherAccount.createTodo({ text: 'Child', parent_id: todo.id })).toThrow('parent not found')
+    expect(() => otherAccount.createTodo({ text: 'Categorized', category_id: category.id })).toThrow('category not found')
   })
 })

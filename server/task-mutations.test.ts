@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import Database from 'better-sqlite3'
-import { initDb } from '../server'
+import { initDb } from './database'
 import { createTaskMutations, TaskMutationError } from './task-mutations'
 import { createTaskPersistence, type TaskPersistence } from './task-persistence'
 import { createRecurringTaskOperations } from './recurring-task-operations'

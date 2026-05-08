@@ -1,17 +1,9 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import type { Todo, Category } from '../types'
 import * as api from '../api'
 import type { RecurringTemplate, SetRecurrenceConfig } from '../recurrence'
 import { fetchTemplates, createTemplate, eraseTemplate } from '../recurrence'
-
-function applyTodoPatch(todos: Todo[], id: number, patch: Partial<Todo>): Todo[] {
-  return todos.map(todo => todo.id === id ? { ...todo, ...patch } : todo)
-}
-
-function clearCategoryFromTodos(todos: Todo[], affectedTodoIds: number[]): Todo[] {
-  const affected = new Set(affectedTodoIds)
-  return todos.map(todo => affected.has(todo.id) ? { ...todo, category_id: null } : todo)
-}
+import { createTaskWorkspace } from '../task-workspace'
 
 export function useTodoStore() {
   const [todos, setTodos] = useState<Todo[]>([])
@@ -20,19 +12,28 @@ export function useTodoStore() {
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const loadTodos = useCallback(() => api.fetchTodos().then(setTodos), [])
-  const loadCategories = useCallback(() => api.fetchCategories().then(setCategories), [])
-  const loadTemplates = useCallback(() => fetchTemplates().then(setTemplates), [])
+  const workspace = useMemo(() => createTaskWorkspace({
+    fetchTodos: api.fetchTodos,
+    fetchCategories: api.fetchCategories,
+    fetchTemplates,
+    createTodo: api.createTodo,
+    patchTodo: api.patchTodo,
+    eraseTodo: api.eraseTodo,
+    createCategory: api.createCategory,
+    eraseCategory: api.eraseCategory,
+    createTemplate,
+    eraseTemplate,
+  }, {
+    setTodos,
+    setCategories,
+    setTemplates,
+  }), [])
 
   useEffect(() => {
-    Promise.all([api.fetchTodos(), api.fetchCategories(), fetchTemplates()]).then(([todos, categories, templates]) => {
-      setTodos(todos)
-      setCategories(categories)
-      setTemplates(templates)
-    }).catch(err => {
+    workspace.loadAll().catch(err => {
       setError((err as Error).message)
     })
-  }, [])
+  }, [workspace])
 
   async function withPending(fn: () => Promise<void>) {
     setPending(true)
@@ -53,53 +54,30 @@ export function useTodoStore() {
     error,
     clearError: () => setError(null),
 
-    addTodo: (text: string, category_id: number | null) =>
-      withPending(async () => { await api.createTodo(text, category_id); await loadTodos() }),
+    addTodo: (text: string, category_id: number | null) => withPending(() => workspace.addTodo(text, category_id)),
 
-    addChild: (text: string, parent_id: number) =>
-      withPending(async () => { await api.createTodo(text, null, parent_id); await loadTodos() }),
+    addChild: (text: string, parent_id: number) => withPending(() => workspace.addChild(text, parent_id)),
 
-    toggleTodo: (id: number, done: boolean) =>
-      withPending(async () => { await api.patchTodo(id, { done: !done }); await loadTodos() }),
+    toggleTodo: (id: number, done: boolean) => withPending(() => workspace.toggleTodo(id, done)),
 
-    deleteTodo: (id: number) =>
-      withPending(async () => { await api.eraseTodo(id); await loadTodos() }),
+    deleteTodo: (id: number) => withPending(() => workspace.deleteTodo(id)),
 
-    changeCategory: (id: number, category_id: number | null) =>
-      withPending(async () => { await api.patchTodo(id, { category_id }); setTodos(prev => applyTodoPatch(prev, id, { category_id })) }),
+    changeCategory: (id: number, category_id: number | null) => withPending(() => workspace.changeCategory(id, category_id)),
 
-    changeDueDate: (id: number, due_date: string | null) =>
-      withPending(async () => { await api.patchTodo(id, { due_date }); setTodos(prev => applyTodoPatch(prev, id, { due_date })) }),
+    changeDueDate: (id: number, due_date: string | null) => withPending(() => workspace.changeDueDate(id, due_date)),
 
-    changeDescription: (id: number, description: string | null) =>
-      withPending(async () => { await api.patchTodo(id, { description }); setTodos(prev => applyTodoPatch(prev, id, { description })) }),
+    changeDescription: (id: number, description: string | null) => withPending(() => workspace.changeDescription(id, description)),
 
-    changePriority: (id: number, priority: 'high' | 'medium' | 'low' | null) =>
-      withPending(async () => { await api.patchTodo(id, { priority }); setTodos(prev => applyTodoPatch(prev, id, { priority })) }),
+    changePriority: (id: number, priority: 'high' | 'medium' | 'low' | null) => withPending(() => workspace.changePriority(id, priority)),
 
-    changeTitle: (id: number, text: string) =>
-      withPending(async () => { await api.patchTodo(id, { text }); setTodos(prev => applyTodoPatch(prev, id, { text })) }),
+    changeTitle: (id: number, text: string) => withPending(() => workspace.changeTitle(id, text)),
 
-    addCategory: (name: string, color: string) =>
-      withPending(async () => { await api.createCategory(name, color); await loadCategories() }),
+    addCategory: (name: string, color: string) => withPending(() => workspace.addCategory(name, color)),
 
-    deleteCategory: (id: number) =>
-      withPending(async () => {
-        const { affectedTodoIds } = await api.eraseCategory(id)
-        setTodos(prev => clearCategoryFromTodos(prev, affectedTodoIds))
-        await loadCategories()
-      }),
+    deleteCategory: (id: number) => withPending(() => workspace.deleteCategory(id)),
 
-    createTemplate: (todo_id: number, config: SetRecurrenceConfig) =>
-      withPending(async () => {
-        await createTemplate(todo_id, config)
-        await Promise.all([loadTemplates(), loadTodos()])
-      }),
+    createTemplate: (todo_id: number, config: SetRecurrenceConfig) => withPending(() => workspace.createTemplate(todo_id, config)),
 
-    deleteTemplate: (id: number) =>
-      withPending(async () => {
-        await eraseTemplate(id)
-        await Promise.all([loadTemplates(), loadTodos()])
-      }),
+    deleteTemplate: (id: number) => withPending(() => workspace.deleteTemplate(id)),
   }
 }

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import Database from 'better-sqlite3'
-import { initDb } from '../server'
+import { initDb } from './database'
 import { createRecurringTaskOperations } from './recurring-task-operations'
 
 let db: Database.Database

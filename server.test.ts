@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import Database from 'better-sqlite3'
 import supertest from 'supertest'
-import { createApp, initDb } from './server'
+import { initDb } from './server/database'
+import { createApp } from './server'
 
 let db: Database.Database
 let request: ReturnType<typeof supertest.agent>

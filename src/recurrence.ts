@@ -1,6 +1,6 @@
 import { request } from './api'
 import type { Todo } from './types'
-import { advanceByRecurrence } from './utils/recurrence-math'
+import { isRecurrenceDate, projectRecurrenceDates } from './recurrence-rules'
 
 type TemplateBase = {
   id: number
@@ -51,15 +51,7 @@ export function recurrenceLabel(t: RecurringTemplate): string {
 }
 
 export function projectFutureDates(template: RecurringTemplate, startDue: string, horizonStr: string): string[] {
-  const dates: string[] = []
-  let current = startDue
-  for (let i = 0; i < 1000; i++) {
-    const next = advanceByRecurrence(template, current)
-    if (next > horizonStr) break
-    dates.push(next)
-    current = next
-  }
-  return dates
+  return projectRecurrenceDates(template, startDue, horizonStr)
 }
 
 export function getTaskDates(todos: Todo[], templates: RecurringTemplate[], horizonStr: string): Set<string> {
@@ -76,22 +68,5 @@ export function getTaskDates(todos: Todo[], templates: RecurringTemplate[], hori
 }
 
 export function isProjectedDate(template: RecurringTemplate, currentDue: string, targetStr: string): boolean {
-  if (targetStr <= currentDue) return false
-  switch (template.recurrence_type) {
-    case 'daily':
-      return true
-    case 'weekly': {
-      const [y, m, d] = targetStr.split('-').map(Number)
-      const dayOfWeek = new Date(y, m - 1, d).getDay()
-      return (template.day_mask & (1 << dayOfWeek)) !== 0
-    }
-    case 'monthly':
-      return Number(targetStr.slice(8, 10)) === template.day_of_month
-    case 'custom': {
-      const [y1, m1, d1] = currentDue.split('-').map(Number)
-      const [y2, m2, d2] = targetStr.split('-').map(Number)
-      const diffDays = Math.round((new Date(y2, m2 - 1, d2).getTime() - new Date(y1, m1 - 1, d1).getTime()) / 86400000)
-      return diffDays > 0 && template.interval_days > 0 && diffDays % template.interval_days === 0
-    }
-  }
+  return isRecurrenceDate(template, currentDue, targetStr)
 }
