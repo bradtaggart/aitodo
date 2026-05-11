@@ -34,6 +34,7 @@ export function AuthForm({ onLogin, onRegister }: Props) {
     <div className="auth-page">
       <div className="auth-card">
         <h1>What's Next...</h1>
+        <p className="auth-subtitle">A quieter desk for planning what matters today.</p>
         <div className="auth-tabs">
           <button
             className={mode === 'login' ? 'active' : ''}

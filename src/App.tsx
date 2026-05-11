@@ -95,72 +95,91 @@ function MainApp({ user, onLogout }: { user: User; onLogout: () => void }) {
         onToggle={() => setCalendarOpen(v => !v)}
       />
       <main className="main-panel">
-        <div className="app-header">
-          <h1>What's Next, {user.name.charAt(0).toUpperCase() + user.name.slice(1)}...</h1>
-          <button className="logout-btn" onClick={onLogout}>Sign out</button>
+        <div className="page-intro">
+          <p className="page-kicker">Work bulletin</p>
+          <div className="app-header">
+            <div>
+              <h1>What&apos;s Next, {user.name.charAt(0).toUpperCase() + user.name.slice(1)}...</h1>
+              <p className="page-subtitle">A clearer desk for today&apos;s tasks, dates, and follow-through.</p>
+            </div>
+            <button className="logout-btn" onClick={onLogout}>Sign out</button>
+          </div>
         </div>
-        {error && (
-          <p className="error">
-            {error}
-            <button onClick={clearError}>×</button>
-          </p>
-        )}
-        <form onSubmit={handleAddTodo} className="add-form">
-          <input
-            value={input}
-            onChange={e => setInput(e.target.value)}
-            placeholder="Add a task..."
-            aria-label="New task"
-            disabled={pending}
+
+        <section className="desk-section desk-section-primary">
+          {error && (
+            <p className="error">
+              {error}
+              <button onClick={clearError}>×</button>
+            </p>
+          )}
+          <form onSubmit={handleAddTodo} className="add-form">
+            <input
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              placeholder="Add a task..."
+              aria-label="New task"
+              disabled={pending}
+            />
+            <button type="submit" disabled={pending}>Add</button>
+            <SortDropdown value={sortBy} onChange={handleSortChange} />
+          </form>
+        </section>
+
+        <section className="desk-section desk-section-secondary">
+          <CategoryBar
+            categories={categories}
+            activeCat={activeCat}
+            onSelect={setActiveCat}
+            onAdd={addCategory}
+            onDelete={handleDeleteCategory}
           />
-          <button type="submit" disabled={pending}>Add</button>
-          <SortDropdown value={sortBy} onChange={handleSortChange} />
-        </form>
-        <CategoryBar
-          categories={categories}
-          activeCat={activeCat}
-          onSelect={setActiveCat}
-          onAdd={addCategory}
-          onDelete={handleDeleteCategory}
-        />
-        {activeCatObj && (
-          <div className="filter-banner">
-            <span className="cat-dot" style={{ background: activeCatObj.color }} />
-            Showing tasks in <strong>{activeCatObj.name}</strong>
-            <button onClick={() => setActiveCat(null)} aria-label="Clear filter">× Clear filter</button>
+          {activeCatObj && (
+            <div className="filter-banner">
+              <span className="cat-dot" style={{ background: activeCatObj.color }} />
+              Showing tasks in <strong>{activeCatObj.name}</strong>
+              <button onClick={() => setActiveCat(null)} aria-label="Clear filter">× Clear filter</button>
+            </div>
+          )}
+          {selectedDate && (
+            <div className="filter-banner">
+              Tasks due <strong>{selectedDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</strong>
+              <span className="filter-banner-count">· {topLevel.length} {topLevel.length === 1 ? 'task' : 'tasks'}</span>
+              <button onClick={() => setSelectedDate(null)} aria-label="Clear date filter">✕ Clear filter</button>
+            </div>
+          )}
+        </section>
+
+        <section className="desk-section desk-section-list">
+          <div className="list-heading">
+            <p className="list-kicker">{selectedDate ? 'Dated items' : 'Task list'}</p>
+            <p className="list-meta">{topLevel.length} {topLevel.length === 1 ? 'entry' : 'entries'}</p>
           </div>
-        )}
-        {selectedDate && (
-          <div className="filter-banner">
-            Tasks due <strong>{selectedDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</strong>
-            <span style={{ marginLeft: 4 }}>· {topLevel.length} {topLevel.length === 1 ? 'task' : 'tasks'}</span>
-            <button onClick={() => setSelectedDate(null)} aria-label="Clear date filter">✕ Clear filter</button>
-          </div>
-        )}
-        {topLevel.length === 0 && <p className="empty">{selectedDate ? 'No tasks due on this day.' : 'No tasks yet.'}</p>}
-        <TodoListProvider value={{
-          categories,
-          templates,
-          subtasksOf,
-          showDueDateChip: selectedDate === null,
-          forceExpanded: selectedDate !== null,
-          onToggle: toggleTodo,
-          onDelete: handleDeleteTodo,
-          onAddChild: addChild,
-          onChangeCategory: changeCategory,
-          onChangeDueDate: changeDueDate,
-          onChangeDescription: changeDescription,
-          onChangePriority: changePriority,
-          onChangeTitle: changeTitle,
-          onSetRecurrence: createTemplate,
-          onRemoveRecurrence: deleteTemplate,
-        }}>
-          <ul className="todo-list">
-            {topLevel.map(todo => (
-              <TodoItem key={todo.id} todo={todo} />
-            ))}
-          </ul>
-        </TodoListProvider>
+          {topLevel.length === 0 && <p className="empty">{selectedDate ? 'No tasks due on this day.' : 'No tasks yet.'}</p>}
+          <TodoListProvider value={{
+            categories,
+            templates,
+            subtasksOf,
+            showDueDateChip: selectedDate === null,
+            forceExpanded: selectedDate !== null,
+            onToggle: toggleTodo,
+            onDelete: handleDeleteTodo,
+            onAddChild: addChild,
+            onChangeCategory: changeCategory,
+            onChangeDueDate: changeDueDate,
+            onChangeDescription: changeDescription,
+            onChangePriority: changePriority,
+            onChangeTitle: changeTitle,
+            onSetRecurrence: createTemplate,
+            onRemoveRecurrence: deleteTemplate,
+          }}>
+            <ul className="todo-list">
+              {topLevel.map(todo => (
+                <TodoItem key={todo.id} todo={todo} />
+              ))}
+            </ul>
+          </TodoListProvider>
+        </section>
       </main>
     </div>
   )

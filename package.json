@@ -4,7 +4,7 @@
   "version": "0.2.0",
   "type": "module",
   "scripts": {
-    "dev": "concurrently \"tsx server.ts\" \"vite\"",
+    "dev": "AITODO_API_PORT=3201 concurrently \"PORT=3201 tsx server.ts\" \"vite\"",
     "server": "tsx server.ts",
     "build": "vite build",
     "lint": "eslint .",
