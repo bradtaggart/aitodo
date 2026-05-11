@@ -13,6 +13,8 @@ COPY package*.json ./
 RUN npm ci --omit=dev && npm install tsx
 COPY --from=builder /app/dist ./dist
 COPY server.ts tsconfig.json ./
+COPY server ./server
+COPY src/recurrence-rules.ts ./src/recurrence-rules.ts
 COPY src/utils ./src/utils
 ENV NODE_ENV=production
 EXPOSE 3001
