@@ -1,0 +1,666 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AI Todo Architecture Tour</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #1e2430;
+      --muted: #5d6676;
+      --line: #d8dde7;
+      --paper: #fbfcff;
+      --panel: #ffffff;
+      --blue: #2563eb;
+      --green: #18835f;
+      --amber: #b26a00;
+      --rose: #c2415d;
+      --violet: #6d4aff;
+      --shadow: 0 18px 45px rgba(38, 48, 70, 0.12);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.5;
+      color: var(--ink);
+      background: var(--paper);
+    }
+
+    a {
+      color: inherit;
+    }
+
+    .hero {
+      min-height: 76vh;
+      display: grid;
+      align-items: end;
+      padding: 48px clamp(20px, 6vw, 80px);
+      background:
+        linear-gradient(rgba(12, 19, 32, 0.18), rgba(12, 19, 32, 0.7)),
+        url("../assets/dog-aitodo.jpg") center / cover no-repeat;
+      color: white;
+    }
+
+    .hero-inner {
+      max-width: 980px;
+    }
+
+    .eyebrow {
+      margin: 0 0 14px;
+      font-size: 0.78rem;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.84);
+    }
+
+    h1 {
+      margin: 0;
+      max-width: 900px;
+      font-size: clamp(3rem, 7vw, 6.8rem);
+      line-height: 0.95;
+      letter-spacing: 0;
+    }
+
+    .hero p {
+      max-width: 720px;
+      margin: 24px 0 0;
+      color: rgba(255, 255, 255, 0.9);
+      font-size: clamp(1rem, 2vw, 1.25rem);
+    }
+
+    main {
+      width: min(1180px, calc(100% - 40px));
+      margin: 0 auto;
+      padding: 52px 0 80px;
+    }
+
+    section {
+      padding: 44px 0;
+      border-bottom: 1px solid var(--line);
+    }
+
+    h2 {
+      margin: 0 0 18px;
+      font-size: clamp(1.8rem, 4vw, 3.1rem);
+      letter-spacing: 0;
+    }
+
+    h3 {
+      margin: 0 0 10px;
+      font-size: 1.05rem;
+      letter-spacing: 0;
+    }
+
+    p {
+      margin: 0;
+      color: var(--muted);
+    }
+
+    code {
+      padding: 2px 6px;
+      border-radius: 6px;
+      background: #eef2f8;
+      color: #1f2a44;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.92em;
+    }
+
+    .intro-grid {
+      display: grid;
+      grid-template-columns: 1.2fr 0.8fr;
+      gap: 24px;
+      align-items: start;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+      padding: 22px;
+    }
+
+    .stat-list {
+      display: grid;
+      gap: 14px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .stat-list li {
+      display: grid;
+      grid-template-columns: 92px 1fr;
+      gap: 12px;
+      align-items: baseline;
+    }
+
+    .stat-list strong {
+      color: var(--ink);
+    }
+
+    .map {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+      margin-top: 24px;
+    }
+
+    .module {
+      min-height: 180px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-top: 5px solid var(--blue);
+      border-radius: 8px;
+      padding: 18px;
+    }
+
+    .module.server {
+      border-top-color: var(--green);
+    }
+
+    .module.shared {
+      border-top-color: var(--amber);
+    }
+
+    .module.test {
+      border-top-color: var(--rose);
+    }
+
+    .module p {
+      margin-top: 8px;
+      font-size: 0.95rem;
+    }
+
+    .module ul,
+    .flow ol,
+    .checklist {
+      margin: 14px 0 0;
+      padding-left: 20px;
+      color: var(--muted);
+    }
+
+    .module li,
+    .flow li,
+    .checklist li {
+      margin: 7px 0;
+    }
+
+    .flow {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+      margin-top: 24px;
+    }
+
+    .flow-card {
+      position: relative;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 20px;
+    }
+
+    .flow-card::before {
+      content: attr(data-step);
+      display: inline-grid;
+      place-items: center;
+      width: 34px;
+      height: 34px;
+      margin-bottom: 14px;
+      border-radius: 50%;
+      background: #e8f0ff;
+      color: var(--blue);
+      font-weight: 800;
+    }
+
+    .swimlane {
+      margin-top: 24px;
+      display: grid;
+      gap: 12px;
+    }
+
+    .lane {
+      display: grid;
+      grid-template-columns: 170px 1fr;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .lane-title {
+      padding: 18px;
+      background: #edf5f2;
+      color: #0c5f45;
+      font-weight: 800;
+    }
+
+    .lane-items {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      padding: 14px;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      min-height: 36px;
+      padding: 7px 12px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: #fff;
+      color: var(--ink);
+      font-size: 0.92rem;
+      white-space: nowrap;
+    }
+
+    .path-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+      margin-top: 24px;
+    }
+
+    .path {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 20px;
+    }
+
+    .path .tag {
+      display: inline-block;
+      margin-bottom: 12px;
+      padding: 4px 9px;
+      border-radius: 999px;
+      background: #fff3df;
+      color: #7b4600;
+      font-size: 0.78rem;
+      font-weight: 800;
+    }
+
+    .sequence {
+      margin-top: 20px;
+      display: grid;
+      gap: 10px;
+    }
+
+    .sequence div {
+      display: grid;
+      grid-template-columns: 28px 1fr;
+      gap: 10px;
+      align-items: start;
+    }
+
+    .sequence span {
+      display: inline-grid;
+      place-items: center;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: #edf2ff;
+      color: var(--blue);
+      font-size: 0.82rem;
+      font-weight: 800;
+    }
+
+    .callout {
+      margin-top: 24px;
+      padding: 20px;
+      border-left: 5px solid var(--violet);
+      background: #f4f2ff;
+      border-radius: 0 8px 8px 0;
+    }
+
+    .callout p {
+      color: #40336d;
+    }
+
+    .footer-note {
+      margin-top: 36px;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    @media (max-width: 900px) {
+      .intro-grid,
+      .map,
+      .flow,
+      .path-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .lane {
+        grid-template-columns: 1fr;
+      }
+
+      .lane-items {
+        display: grid;
+      }
+
+      .pill {
+        white-space: normal;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="hero">
+    <div class="hero-inner">
+      <p class="eyebrow">AI Todo architecture tour</p>
+      <h1>How the app thinks, saves, and repeats tasks.</h1>
+      <p>This page is a guided map of the modules in <code>aitodo</code>: the React screen, the client state layer, the shared task and recurrence rules, the Express API, and the SQLite-backed account workspace.</p>
+    </div>
+  </header>
+
+  <main>
+    <section>
+      <div class="intro-grid">
+        <div>
+          <h2>The Big Picture</h2>
+          <p>AI Todo is a self-hosted, multi-account task manager. The core product objects are Accounts, Tasks, Categories, Templates, and Sessions. The client renders and orchestrates interactions, the server enforces account ownership, and shared pure modules keep task-list and recurrence behavior testable.</p>
+        </div>
+        <aside class="panel">
+          <h3>Runtime shape</h3>
+          <ul class="stat-list">
+            <li><strong>Client</strong><span>React 19 + Vite 8 + TypeScript</span></li>
+            <li><strong>Server</strong><span>Express 5 with cookie sessions</span></li>
+            <li><strong>Data</strong><span>SQLite through <code>better-sqlite3</code></span></li>
+            <li><strong>Tests</strong><span>Vitest, supertest, pure module tests</span></li>
+          </ul>
+        </aside>
+      </div>
+    </section>
+
+    <section>
+      <h2>Module Map</h2>
+      <p>Think of the codebase as four layers: UI components, client orchestration, shared business rules, and server persistence.</p>
+
+      <div class="map">
+        <article class="module">
+          <h3><code>src/App.tsx</code></h3>
+          <p>The top-level screen coordinator. It chooses auth vs. main app, owns visible filters, sort preference, and wires handlers into components.</p>
+          <ul>
+            <li>Uses <code>useAuth</code> for session state.</li>
+            <li>Uses <code>useTodoStore</code> for task data.</li>
+            <li>Calls <code>deriveTaskList</code> before rendering.</li>
+          </ul>
+        </article>
+
+        <article class="module">
+          <h3><code>src/components/</code></h3>
+          <p>Reusable UI pieces: task rows, calendar, category bar, auth form, sort dropdown, recurrence picker, and task fields.</p>
+          <ul>
+            <li>Mostly receives data and callbacks.</li>
+            <li><code>TodoItem</code> handles nested task UI.</li>
+            <li><code>CalendarPanel</code> highlights due and projected dates.</li>
+          </ul>
+        </article>
+
+        <article class="module">
+          <h3><code>src/hooks/</code></h3>
+          <p>React adapters over app state. Hooks keep component code from knowing HTTP details or pending/error bookkeeping.</p>
+          <ul>
+            <li><code>useAuth</code>: login, register, logout, current Account.</li>
+            <li><code>useTodoStore</code>: Tasks, Categories, Templates.</li>
+          </ul>
+        </article>
+
+        <article class="module">
+          <h3><code>src/api.ts</code></h3>
+          <p>The client HTTP boundary. It wraps <code>fetch</code>, includes cookies, normalizes failures, and exposes typed API helpers.</p>
+          <ul>
+            <li>Throws <code>AuthError</code> on 401.</li>
+            <li>Maps SQLite-style <code>done</code> values to booleans.</li>
+          </ul>
+        </article>
+
+        <article class="module shared">
+          <h3><code>src/task-workspace.ts</code></h3>
+          <p>A non-React client workflow core. It decides when to reload lists from the server and when a local patch is enough.</p>
+          <ul>
+            <li>Reloads after adds, deletes, recurrence changes.</li>
+            <li>Patches simple field changes locally.</li>
+          </ul>
+        </article>
+
+        <article class="module shared">
+          <h3><code>src/task-list.ts</code></h3>
+          <p>Pure list derivation. It builds the tree, filters by category or date, includes projected recurring dates, and sorts.</p>
+          <ul>
+            <li>Depends on <code>utils/tree</code>.</li>
+            <li>Uses recurrence projection for calendar date views.</li>
+          </ul>
+        </article>
+
+        <article class="module shared">
+          <h3><code>src/recurrence*.ts</code></h3>
+          <p>Recurring task behavior. <code>recurrence.ts</code> is client-facing API and labels; <code>recurrence-rules.ts</code> is shared pure math.</p>
+          <ul>
+            <li>Validates recurrence configs.</li>
+            <li>Computes next and projected dates.</li>
+          </ul>
+        </article>
+
+        <article class="module server">
+          <h3><code>server.ts</code></h3>
+          <p>The Express composition root. It creates modules, installs middleware, defines routes, and serves the Vite build in production.</p>
+          <ul>
+            <li>Auth routes come first.</li>
+            <li><code>/api</code> routes require a Session.</li>
+          </ul>
+        </article>
+
+        <article class="module server">
+          <h3><code>server/database.ts</code></h3>
+          <p>Database schema and migration setup. It creates tables and adds missing columns for existing local databases.</p>
+          <ul>
+            <li>Enables foreign keys.</li>
+            <li>Seeds the legacy default Account.</li>
+          </ul>
+        </article>
+
+        <article class="module server">
+          <h3><code>server/task-persistence.ts</code></h3>
+          <p>The SQLite data access module. Its important boundary is <code>forAccount(accountId)</code>, which scopes operations to one Account.</p>
+          <ul>
+            <li>Creates Tasks and Categories.</li>
+            <li>Guards parent, category, and template ownership.</li>
+          </ul>
+        </article>
+
+        <article class="module server">
+          <h3><code>server/task-mutations.ts</code></h3>
+          <p>The patch validator and mutation coordinator. It validates incoming task edits and delegates recurrence completion behavior.</p>
+          <ul>
+            <li>Checks priority and date formats.</li>
+            <li>Completing a recurring Task may spawn the next Task.</li>
+          </ul>
+        </article>
+
+        <article class="module server">
+          <h3><code>server/account-session.ts</code></h3>
+          <p>Account product logic. It registers, logs in, shapes the current Account response, and merges preferences.</p>
+          <ul>
+            <li>Hashes passwords with bcrypt.</li>
+            <li>Leaves JWT cookie mechanics to <code>auth.ts</code>.</li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <section>
+      <h2>App Startup Workflow</h2>
+      <p>On a normal local run, the Express API and Vite dev server run together. The browser loads React from Vite, while API calls go to Express.</p>
+      <div class="flow">
+        <article class="flow-card" data-step="1">
+          <h3>Start the processes</h3>
+          <p><code>npm run dev</code> starts <code>tsx server.ts</code> and <code>vite</code>. In development, Express enables CORS for Vite at <code>localhost:5173</code>.</p>
+        </article>
+        <article class="flow-card" data-step="2">
+          <h3>Initialize storage</h3>
+          <p><code>startServer()</code> opens the SQLite database, calls <code>initDb(db)</code>, builds the Express app, and listens on port <code>3001</code> unless overridden.</p>
+        </article>
+        <article class="flow-card" data-step="3">
+          <h3>Mount React</h3>
+          <p><code>src/main.tsx</code> mounts <code>&lt;App /&gt;</code>. <code>App</code> asks <code>useAuth</code> whether there is an active Session before showing the task workspace.</p>
+        </article>
+      </div>
+    </section>
+
+    <section>
+      <h2>Request And Data Flow</h2>
+      <p>Most user actions follow the same route from interface to database and back.</p>
+      <div class="swimlane">
+        <div class="lane">
+          <div class="lane-title">React UI</div>
+          <div class="lane-items">
+            <span class="pill"><code>App.tsx</code></span>
+            <span class="pill"><code>TodoItem</code></span>
+            <span class="pill"><code>CategoryBar</code></span>
+            <span class="pill"><code>CalendarPanel</code></span>
+          </div>
+        </div>
+        <div class="lane">
+          <div class="lane-title">Client state</div>
+          <div class="lane-items">
+            <span class="pill"><code>useTodoStore</code></span>
+            <span class="pill"><code>createTaskWorkspace</code></span>
+            <span class="pill"><code>api.ts</code></span>
+          </div>
+        </div>
+        <div class="lane">
+          <div class="lane-title">HTTP API</div>
+          <div class="lane-items">
+            <span class="pill"><code>server.ts</code> route</span>
+            <span class="pill"><code>requireAuth</code></span>
+            <span class="pill"><code>req.userId</code></span>
+          </div>
+        </div>
+        <div class="lane">
+          <div class="lane-title">Domain modules</div>
+          <div class="lane-items">
+            <span class="pill"><code>task-mutations</code></span>
+            <span class="pill"><code>recurring-task-operations</code></span>
+            <span class="pill"><code>account-session</code></span>
+          </div>
+        </div>
+        <div class="lane">
+          <div class="lane-title">Persistence</div>
+          <div class="lane-items">
+            <span class="pill"><code>task-persistence</code></span>
+            <span class="pill"><code>forAccount(accountId)</code></span>
+            <span class="pill">SQLite tables</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Common Workflows</h2>
+      <p>These are the paths worth memorizing when changing behavior.</p>
+      <div class="path-grid">
+        <article class="path">
+          <span class="tag">Add a Task</span>
+          <h3>From form submit to refreshed list</h3>
+          <div class="sequence">
+            <div><span>1</span><p><code>App.tsx</code> trims the input and calls <code>addTodo(text, activeCat)</code>.</p></div>
+            <div><span>2</span><p><code>useTodoStore</code> wraps the call with pending/error state.</p></div>
+            <div><span>3</span><p><code>task-workspace</code> calls <code>api.createTodo</code>, then reloads Tasks.</p></div>
+            <div><span>4</span><p><code>server.ts</code> handles <code>POST /api/todos</code> through <code>persistence.forAccount(req.userId)</code>.</p></div>
+          </div>
+        </article>
+
+        <article class="path">
+          <span class="tag">Edit a Field</span>
+          <h3>Small server write, local UI update</h3>
+          <div class="sequence">
+            <div><span>1</span><p>UI calls a change handler such as <code>changeDueDate</code> or <code>changeTitle</code>.</p></div>
+            <div><span>2</span><p><code>api.patchTodo</code> sends <code>PATCH /api/todos/:id</code>.</p></div>
+            <div><span>3</span><p><code>task-mutations</code> validates the patch and writes through the Account workspace.</p></div>
+            <div><span>4</span><p><code>task-workspace</code> applies a local patch instead of reloading the whole list.</p></div>
+          </div>
+        </article>
+
+        <article class="path">
+          <span class="tag">Complete a Recurring Task</span>
+          <h3>Completion can spawn the next occurrence</h3>
+          <div class="sequence">
+            <div><span>1</span><p>Toggle calls <code>patchTodo(id, { done: !done })</code>.</p></div>
+            <div><span>2</span><p><code>task-mutations</code> delegates completion to <code>recurring-task-operations</code>.</p></div>
+            <div><span>3</span><p><code>nextRecurrenceDate</code> computes the new due date from the Template.</p></div>
+            <div><span>4</span><p>The server transaction marks the tree done and inserts the next Task if needed.</p></div>
+          </div>
+        </article>
+
+        <article class="path">
+          <span class="tag">Sign In</span>
+          <h3>Session cookie unlocks Account data</h3>
+          <div class="sequence">
+            <div><span>1</span><p><code>AuthForm</code> calls <code>useAuth.login</code> or <code>register</code>.</p></div>
+            <div><span>2</span><p><code>account-session</code> validates credentials and returns an Account view.</p></div>
+            <div><span>3</span><p><code>auth.ts</code> sets an httpOnly <code>session</code> cookie with a JWT subject.</p></div>
+            <div><span>4</span><p><code>requireAuth</code> reads that cookie on later <code>/api</code> requests and sets <code>req.userId</code>.</p></div>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section>
+      <h2>Where To Change What</h2>
+      <p>When you know the kind of change, start in the narrowest module that owns that behavior.</p>
+      <div class="path-grid">
+        <article class="path">
+          <h3>Visual layout or controls</h3>
+          <p>Start in <code>src/components/</code> and <code>src/App.css</code>. If the control needs new data or actions, then connect it through <code>App.tsx</code> and <code>useTodoStore</code>.</p>
+        </article>
+        <article class="path">
+          <h3>Task filtering or sorting</h3>
+          <p>Start in <code>src/task-list.ts</code>. Tests live in <code>src/task-list.test.ts</code>, and this module is pure enough to test without React.</p>
+        </article>
+        <article class="path">
+          <h3>Client write workflow</h3>
+          <p>Start in <code>src/task-workspace.ts</code>. It owns reload-versus-local-patch decisions, while <code>useTodoStore</code> should stay mostly a React adapter.</p>
+        </article>
+        <article class="path">
+          <h3>API route behavior</h3>
+          <p>Start in <code>server.ts</code> to find the route, then move into the smaller module that owns the rule: mutations, recurrence operations, account session, or persistence.</p>
+        </article>
+        <article class="path">
+          <h3>Database shape</h3>
+          <p>Start in <code>server/database.ts</code> for schema setup, then update <code>server/task-persistence.ts</code> so the rest of the app uses named methods instead of SQL.</p>
+        </article>
+        <article class="path">
+          <h3>Recurrence logic</h3>
+          <p>Start in <code>src/recurrence-rules.ts</code>. It is shared by client projections and server spawning, so changes there should be covered by focused recurrence tests.</p>
+        </article>
+      </div>
+      <div class="callout">
+        <p><strong>Rule of thumb:</strong> UI modules should ask for things, workspace modules should orchestrate things, server modules should validate and enforce ownership, and persistence should be the only layer that knows SQL details.</p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Testing Map</h2>
+      <p>The test files mirror the architecture boundaries. Use the most focused test that can prove the behavior.</p>
+      <ul class="checklist">
+        <li><code>src/task-list.test.ts</code> verifies derived list behavior: tree, filters, sorts, and date views.</li>
+        <li><code>src/task-workspace.test.ts</code> verifies client orchestration without React or HTTP.</li>
+        <li><code>src/recurrence-rules.test.ts</code> verifies recurrence validation, projection, and next-date math.</li>
+        <li><code>server/*.test.ts</code> verifies API routes and lower-level server modules, including Account isolation.</li>
+        <li><code>src/components/todo-item-interactions.test.ts</code> covers UI interaction helper behavior.</li>
+      </ul>
+      <p class="footer-note">Useful commands: <code>npm run test</code>, <code>npm run lint</code>, <code>npm run build</code>, and <code>npm run dev</code>.</p>
+    </section>
+  </main>
+</body>
+</html>

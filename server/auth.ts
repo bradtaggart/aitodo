@@ -8,6 +8,9 @@ declare module 'express-serve-static-core' {
 }
 
 const JWT_SECRET = process.env.JWT_SECRET ?? 'dev-secret-change-in-production'
+if (process.env.NODE_ENV === 'production' && JWT_SECRET === 'dev-secret-change-in-production') {
+  throw new Error('JWT_SECRET must be set in production')
+}
 const COOKIE = 'session'
 
 export function requireAuth(req: Request, res: Response, next: NextFunction): void {
